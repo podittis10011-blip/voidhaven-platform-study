@@ -1,0 +1,22 @@
+voidhaven:
+  cookie-secure: true
+  local-fixture-sources-enabled: false
+  # Used only by the explicit production,bootstrap-admin one-shot command profile.
+  # The normal production web process never creates accounts or emits activation material.
+  bootstrap-admin-login: ${VOIDHAVEN_BOOTSTRAP_ADMIN_LOGIN:}
+  bootstrap-admin-password: ""
+  bootstrap-partner-login: ""
+  bootstrap-partner-password: ""
+  public-write-rate-limit-secret: ${VOIDHAVEN_RATE_LIMIT_SECRET:}
+  media-endpoint: ${VOIDHAVEN_MEDIA_ENDPOINT:}
+  media-access-key: ${VOIDHAVEN_MEDIA_ACCESS_KEY:}
+  media-secret-key: ${VOIDHAVEN_MEDIA_SECRET_KEY:}
+  media-bucket: ${VOIDHAVEN_MEDIA_BUCKET:}
+  trust-proxy-headers: true
+  trusted-proxy-networks: ${VOIDHAVEN_TRUSTED_PROXY_NETWORKS:}
+server:
+  forward-headers-strategy: framework
+  servlet:
+    session:
+      cookie:
+        secure: true

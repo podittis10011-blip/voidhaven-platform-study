@@ -1,0 +1,12 @@
+FROM eclipse-temurin:17-jdk AS build
+WORKDIR /workspace
+COPY . .
+RUN --mount=type=cache,target=/root/.m2 chmod +x mvnw && ./mvnw -q -DskipTests clean package
+
+FROM eclipse-temurin:17-jre
+WORKDIR /app
+RUN useradd --system --uid 10001 voidhaven
+COPY --from=build /workspace/target/api-*.jar /app/api.jar
+USER 10001
+EXPOSE 8081
+ENTRYPOINT ["java", "-jar", "/app/api.jar"]

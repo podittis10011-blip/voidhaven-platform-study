@@ -1,0 +1,34 @@
+# Java / Maven
+apps/api/target/
+apps/api/cp.txt
+
+# Node / Vite / Playwright
+**/node_modules/
+**/dist/
+**/coverage/
+apps/web/playwright-report/
+apps/web/test-results/
+docs/evidence/playwright-artifacts/
+docs/evidence/playwright-report/
+
+# Local environment and runtime data
+.env
+.env.*
+!.env.example
+!.env.candidate.example
+infra/compose/runtime/
+.verification/
+.release/
+*.log
+hs_err_pid*.log
+replay_pid*.log
+
+# IDE and operating-system files
+.idea/
+.vscode/
+*.iml
+Thumbs.db
+Desktop.ini
+
+# Versioned environment templates under infra/env
+!infra/env/.env.*.example

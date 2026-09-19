@@ -1,0 +1,118 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      MYSQL_DATABASE: voidhaven
+      MYSQL_USER: ${VOIDHAVEN_DB_USERNAME:-voidhaven_app}
+      MYSQL_PASSWORD: ${VOIDHAVEN_DB_PASSWORD:-change-me-local-only}
+      MYSQL_ROOT_PASSWORD: local-root-password-change-me
+    command: ['mysqld', '--character-set-server=utf8mb4', '--collation-server=utf8mb4_0900_ai_ci']
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD-SHELL', 'mysqladmin ping -h localhost -uroot -plocal-root-password-change-me']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    restart: unless-stopped
+    logging: *default-logging
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${VOIDHAVEN_MEDIA_ACCESS_KEY:-voidhaven-local}
+      MINIO_ROOT_PASSWORD: ${VOIDHAVEN_MEDIA_SECRET_KEY:-change-me-local-only}
+    volumes:
+      - minio-data:/data
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-05-21T01-59-54Z
+    # No restart policy: this is a one-shot bucket-provisioning job that is expected to
+    # exit 0 and stay stopped, not a long-running service.
+    logging: *default-logging
+    depends_on:
+      - minio
+    environment:
+      VOIDHAVEN_MEDIA_ACCESS_KEY: ${VOIDHAVEN_MEDIA_ACCESS_KEY:-voidhaven-local}
+      VOIDHAVEN_MEDIA_SECRET_KEY: ${VOIDHAVEN_MEDIA_SECRET_KEY:-change-me-local-only}
+      VOIDHAVEN_MEDIA_BUCKET: ${VOIDHAVEN_MEDIA_BUCKET:-voidhaven-media}
+    entrypoint: ['/bin/sh', '-ec']
+    command:
+      - |
+        until mc alias set local http://minio:9000 "$${VOIDHAVEN_MEDIA_ACCESS_KEY}" "$${VOIDHAVEN_MEDIA_SECRET_KEY}"; do
+          sleep 1
+        done
+        mc mb --ignore-existing "local/$${VOIDHAVEN_MEDIA_BUCKET}"
+        mc anonymous set none "local/$${VOIDHAVEN_MEDIA_BUCKET}"
+
+  api:
+    build: ../../apps/api
+    restart: unless-stopped
+    logging: *default-logging
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      VOIDHAVEN_DB_URL: ${VOIDHAVEN_DB_URL:-jdbc:mysql://mysql:3306/voidhaven?useUnicode=true&characterEncoding=UTF-8&serverTimezone=UTC}
+      VOIDHAVEN_DB_USERNAME: ${VOIDHAVEN_DB_USERNAME:-voidhaven_app}
+      VOIDHAVEN_DB_PASSWORD: ${VOIDHAVEN_DB_PASSWORD:-change-me-local-only}
+      VOIDHAVEN_BOOTSTRAP_ADMIN_LOGIN: ${VOIDHAVEN_BOOTSTRAP_ADMIN_LOGIN:-local-admin}
+      VOIDHAVEN_BOOTSTRAP_ADMIN_PASSWORD: ${VOIDHAVEN_BOOTSTRAP_ADMIN_PASSWORD:-change-me-before-first-local-run}
+      VOIDHAVEN_BOOTSTRAP_PARTNER_LOGIN: ${VOIDHAVEN_BOOTSTRAP_PARTNER_LOGIN:-local-partner}
+      VOIDHAVEN_BOOTSTRAP_PARTNER_PASSWORD: ${VOIDHAVEN_BOOTSTRAP_PARTNER_PASSWORD:-change-me-before-first-local-run}
+      VOIDHAVEN_COOKIE_SECURE: 'false'
+      VOIDHAVEN_RATE_LIMIT_SECRET: ${VOIDHAVEN_RATE_LIMIT_SECRET:-local-development-rate-limit-secret}
+      VOIDHAVEN_MEDIA_ENDPOINT: ${VOIDHAVEN_MEDIA_ENDPOINT:-http://minio:9000}
+      VOIDHAVEN_MEDIA_ACCESS_KEY: ${VOIDHAVEN_MEDIA_ACCESS_KEY:-voidhaven-local}
+      VOIDHAVEN_MEDIA_SECRET_KEY: ${VOIDHAVEN_MEDIA_SECRET_KEY:-change-me-local-only}
+      VOIDHAVEN_MEDIA_BUCKET: ${VOIDHAVEN_MEDIA_BUCKET:-voidhaven-media}
+      VOIDHAVEN_PUBLIC_BASE_URL: http://localhost:${VOIDHAVEN_HTTP_PORT:-8080}
+      VOIDHAVEN_COMMUNITY_GATE_ENABLED: ${VOIDHAVEN_COMMUNITY_GATE_ENABLED:-true}
+      VOIDHAVEN_COMMUNITY_GRANT_MINUTES: ${VOIDHAVEN_COMMUNITY_GRANT_MINUTES:-30}
+      VOIDHAVEN_COMMUNITY_INVITE_HMAC_SECRET: ${VOIDHAVEN_COMMUNITY_INVITE_HMAC_SECRET:-test-only-community-hmac-secret-never-production}
+      VOIDHAVEN_PRIVATE_CONTACT_ENABLED: ${VOIDHAVEN_PRIVATE_CONTACT_ENABLED:-true}
+      VOIDHAVEN_PRIVATE_VALUE_CURRENT_KEY_ID: ${VOIDHAVEN_PRIVATE_VALUE_CURRENT_KEY_ID:-test-local-v1}
+      VOIDHAVEN_PRIVATE_VALUE_KEYS: ${VOIDHAVEN_PRIVATE_VALUE_KEYS:-test-local-v1:dGVzdC1vbmx5LXByaXZhdGUtdmFsdWUta2V5LTMyISE=}
+      VOIDHAVEN_PUBLIC_WRITE_RATE_LIMIT: ${VOIDHAVEN_PUBLIC_WRITE_RATE_LIMIT:-8}
+      VOIDHAVEN_PUBLIC_WRITE_RATE_LIMIT_WINDOW_SECONDS: ${VOIDHAVEN_PUBLIC_WRITE_RATE_LIMIT_WINDOW_SECONDS:-3600}
+      VOIDHAVEN_PUBLIC_STATUS_QUERY_RATE_LIMIT: ${VOIDHAVEN_PUBLIC_STATUS_QUERY_RATE_LIMIT:-60}
+      VOIDHAVEN_PUBLIC_STATUS_QUERY_RATE_LIMIT_WINDOW_SECONDS: ${VOIDHAVEN_PUBLIC_STATUS_QUERY_RATE_LIMIT_WINDOW_SECONDS:-3600}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: ../..
+      dockerfile: infra/docker/Dockerfile.web
+      args:
+        VOIDHAVEN_RELEASE_VERSION: local
+        VOIDHAVEN_SOURCE_REVISION: local
+        VOIDHAVEN_BUILD_CREATED: '1970-01-01T00:00:00Z'
+    restart: unless-stopped
+    logging: *default-logging
+
+  nginx:
+    image: nginxinc/nginx-unprivileged:1.29-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    ports:
+      - '${VOIDHAVEN_HTTP_PORT:-8080}:8080'
+    volumes:
+      - ../nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - api
+      - web
+
+volumes:
+  mysql-data:
+  minio-data:
