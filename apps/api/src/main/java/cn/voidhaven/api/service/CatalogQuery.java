@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+/** Parameterized SQL builder for public catalog listing: search, filters, sort, and cursor predicates. */
 public final class CatalogQuery {
     public static final int UNORDERED_RANK = 20000;
 
@@ -26,6 +27,9 @@ public final class CatalogQuery {
             int limit) { }
 
     private CatalogQuery() { }
+// 分两段进行查询，
+// 第一阶段，SQL按排顺序/筛选/游标进行
+// 第二阶段，用id批量回查完整实体（复用JPA）
 
     public static BoundSql selectIds(Spec spec) {
         List<Object> args = new ArrayList<>();
@@ -33,6 +37,8 @@ public final class CatalogQuery {
         sql.append("select c.id as id, ").append(sortExpression(spec.sort())).append(" as sort_key ");
         sql.append("from content_items c ");
         sql.append("join content_revisions r on r.id = c.published_revision_id ");
+
+        //按排序方式（默认排序/截止时间）决定返回查询结果（哪些表）
         if (spec.sort() == CatalogSort.DEFAULT) {
             sql.append("left join catalog_order_entries o on o.content_item_id = c.id and o.kind = c.kind and o.active = true ");
         }
@@ -43,6 +49,8 @@ public final class CatalogQuery {
         if (spec.filterKey() != null) {
             sql.append("join revision_filter_values f on f.revision_id = r.id ");
         }
+
+        //只查公开 / 状态为ACTIVE（未删除/有已发布修订）的内容
         sql.append("where c.visibility = 'PUBLIC' and c.record_state = 'ACTIVE' ");
         if (spec.moduleKey() != null) {
             sql.append("and c.module_key = ? ");
@@ -51,12 +59,15 @@ public final class CatalogQuery {
             sql.append("and c.kind = ? ");
             args.add(spec.kind().name());
         }
+
+        //搜索
         if (spec.query() != null) {
             sql.append("and (lower(r.title) like lower(concat('%', ?, '%')) or lower(r.summary) like lower(concat('%', ?, '%')) or lower(r.source_name) like lower(concat('%', ?, '%'))) ");
             args.add(spec.query());
             args.add(spec.query());
             args.add(spec.query());
         }
+        //筛选
         if (spec.filterKey() != null) {
             sql.append("and f.field_key = ? ");
             args.add(spec.filterKey());
@@ -106,6 +117,7 @@ public final class CatalogQuery {
         };
     }
 
+    //游标条件
     static void appendCursor(StringBuilder sql, List<Object> args, CatalogSort sort, CatalogCursor cursor) {
         if (cursor == null) return;
         if (cursor.legacy()) {
@@ -113,6 +125,8 @@ public final class CatalogQuery {
             args.add(cursor.id());
             return;
         }
+
+        //DEFAULE比较逻辑
         if (sort == CatalogSort.DEFAULT) {
             int rank = parseRank(cursor.key());
             sql.append("and (coalesce(o.sort_order, ").append(UNORDERED_RANK).append(") > ? or (coalesce(o.sort_order, ")
@@ -122,6 +136,7 @@ public final class CatalogQuery {
             args.add(cursor.id());
             return;
         }
+        //DEADLINE比较逻辑
         if (sort == CatalogSort.DEADLINE) {
             String expr = "coalesce(cd.deadline_date, rd.deadline_date)";
             if (cursor.key() == null || cursor.key().isBlank() || "~".equals(cursor.key())) {
@@ -137,6 +152,8 @@ public final class CatalogQuery {
             return;
         }
         Timestamp timestamp = Timestamp.from(Instant.parse(cursor.key()));
+
+        //UPDATE比较逻辑
         sql.append("and (c.updated_at < ? or (c.updated_at = ? and c.id < ?)) ");
         args.add(timestamp);
         args.add(timestamp);

@@ -9,6 +9,10 @@ import java.net.URI;
 import java.net.InetAddress;
 import java.util.Locale;
 
+/**
+ * Fail-closed HTTPS source allowlist for public content. Blocks localhost, private
+ * ranges, and other unsafe hosts; local fixture URLs are opt-in for development only.
+ */
 @Component
 public class ContentSourcePolicy {
     private final boolean localFixturesEnabled;
