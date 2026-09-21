@@ -8,8 +8,10 @@ import java.util.List;
 //数据传输对象，不同层不同系统之间传输数据（相当于专门用于传数据的Java对象）
 //
 
-//record关键字，Java提供的一种特殊类型，适合“只负责出数据保存的数据类”，
+//record关键字，相当于不可变数据容器,字段是JSON响应里的key,与JSON的key一一对应;
+//Java提供的一种特殊类型，适合“只负责出数据保存的数据类”，
 //加上后避免重复写大量样板代码，编译器会自动提供与record载体相关的内容.
+//在publicContentDto中，record关键字用于定义一个公共内容数据传输对象，用于将内容数据传输到前端。
 public record PublicContentDto(String id, ContentKind kind, String moduleKey, int schemaVersion, String title, String summary, JsonNode body, String languageCode,
                                String languageLabel, String originalTitle, String sourceName, String sourceUrl, String rightsBasis,
                                String authorDisplayName, String reprintPermission, String adaptationPermission, JsonNode details, long revision,

@@ -15,8 +15,36 @@ import java.util.List;
 import java.util.Map;
 import cn.voidhaven.api.support.PageResult;
 
+
+//AdminController类出现的注释：
+    //@GetMapping：表示获取数据
+    //@PutMapping：表示替换数据
+    //@DeleteMapping：表示删除数据
+    //@RequestParam：表示请求参数
+    //@RequestBody：表示请求体
+    //@RequestHeader：表示请求头
+    //@PathVariable：表示路径变量
+    //@Valid：表示验证请求参数
+    //@NotNull：表示请求参数不能为空
+    //@Size：表示请求参数大小
+    //@Pattern：表示请求参数格式
+
+
+
+
+
 @RestController
 @RequestMapping("/api/v1/admin")
+
+//AdminController类是管理员控制器，用于管理员管理内容、合作伙伴、公共案例、公共输入等。
+//AdminController类的属性：
+//1. content：内容管理服务
+//2. idempotency：幂等性服务
+//3. accounts：账户存储库
+//4. provisioning：合作伙伴账户管理服务
+//5. partnerAdministration：合作伙伴管理服务
+//6. auditQuery：审计查询服务
+//7. accountAdministration：账户管理服务
 public class AdminController {
     private final ContentManagementService content;
     private final IdempotencyService idempotency;
@@ -143,10 +171,11 @@ public class AdminController {
                 () -> accountAdministration.createAdmin(body.loginId(), body.reason(), accountId(auth), role(auth), requestId(request))), request);
     }
 
+    //PostMapping("/content-items")：表示创建内容
     @PostMapping("/content-items")
     ApiResponse<ContentManagementService.Managed> create(@RequestHeader("Idempotency-Key") String key,
             @Valid @RequestBody ContentManagementService.Draft draft, Authentication auth, HttpServletRequest request) {
-        return ok(idempotency.execute(key, draft, ContentManagementService.Managed.class,
+                return ok(idempotency.execute(key, draft, ContentManagementService.Managed.class,
                 () -> content.create(draft, null, accountId(auth), role(auth), requestId(request))), request);
     }
 

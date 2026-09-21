@@ -161,6 +161,8 @@ public class ContentService {
         return result;
     }
 
+
+    //载荷开关的作用:控制是否包含:媒体资源、操作和验证信息、原始来源、模块键、版本号、更新时间、详情
     public PublicContentDto publicCard(ContentItem item) { return toPublic(item, false); }
     boolean sourcedForPublic(ContentItem item) { return hasPublicSource(item); }
     public List<ContentItem> publicPool(ContentKind kind, int size) {
@@ -171,6 +173,11 @@ public class ContentService {
         try { return new PublicContentDto(item.getId(), item.getKind(), moduleKey(item), r.getSchemaVersion(), r.getTitle(), r.getSummary(), mapper.readTree(r.getBodyJson()), r.getLanguageCode(), languages.label(r.getLanguageCode()), r.getOriginalTitle(), r.getSourceName(), r.getSourceUrl(), r.getRightsBasis(), r.getAuthorDisplayName(), r.getReprintPermission(), r.getAdaptationPermission(), mapper.readTree(r.getMetadataJson() == null ? r.getDetailsJson() : r.getMetadataJson()), item.getVersion() == null ? 0 : item.getVersion(), includeMedia ? media.forPublishedRevision(r.getId()) : List.of(), item.getOperationalStatus(), includeMedia && actions != null ? actions.publicActions(item.getId()) : List.of(), includeMedia && verifications != null ? verifications.latestPublic(item.getId()) : null, item.getUpdatedAt()); }
         catch (Exception e) { throw new IllegalStateException("Invalid persisted content document", e); }
     }
+
+    //过滤掉不可见的内容
+    //两条合法路径：
+    //1. HTTPS外链，并且是原始来源
+    //2. 无外链,但模块允许原始来源
     boolean hasPublicSource(ContentItem item) {
         ContentRevision revision = item.getPublishedRevision();
         if (revision == null) return false;

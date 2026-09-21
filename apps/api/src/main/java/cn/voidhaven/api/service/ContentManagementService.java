@@ -23,6 +23,63 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
 
+//ContentManagementService类是内容管理服务类，用于管理内容的生命周期。
+
+//ContentManagementService类中的属性有：
+    //1. items: 内容仓库
+    //2. revisions: 内容版本仓库
+    //3. profiles: 合作伙伴仓库
+    //4. audit: 审计服务
+    //5. mapper: 对象映射器
+    //6. sources: 内容来源策略
+    //7. richText: 富文本策略
+    //8. languages: 内容语言策略
+    //9. modules: 内容模块注册表
+    //10. markdown: markdown文档服务
+    //11. jdbc: JDBC模板
+    //12. accountLocks: 账户锁服务
+    //13. contentActions: 内容动作服务
+
+//ContentManagementService类中的方法有：
+    //1. Draft: 草稿
+    //2. Managed: 管理内容
+    //3. ReviewRecord: 审核记录
+    //4. Editable: 可编辑内容
+    //5. PublicationBlocker: 发布阻塞器
+    //6. PublicationReadiness: 发布准备
+    //7. Prepared: 准备内容
+    //8. create: 创建内容
+    //9. submit: 送审内容
+    //10. decide: 决定内容
+    //11. reopen: 重新打开内容
+    //12. publish: 发布内容
+    //13. hide: 隐藏内容
+    //14. show: 显示内容
+    //15. delete: 删除内容
+    //16. revision: 内容版本
+    //17. managed: 管理内容
+    //18. find: 查找内容
+    //19. owned: 归属内容
+    //20. json: 将JsonNode对象序列化为字符串
+    //21. text: 获取JsonNode对象的文本值
+    //22. nullable: 将字符串转换为空值
+    //23. blank: 检查字符串是否为空
+    //24. requireReason: 检查操作原因是否为空
+    //25. requirePartnerPublicationCapacity: 检查合作伙伴发布容量
+    //26. require: 检查条件
+    //27. prepare: 准备内容
+    //28. new ContentItem: 创建ContentItem对象
+    //29. setModuleKey: 设置内容模块key
+    //30. setOwnerPartnerProfileId: 设置内容归属合作方
+    //31. saveContentItem: 保存ContentItem对象
+    //32. createContentRevision: 创建内容版本
+    //33. saveContentRevision: 保存内容版本
+    //34. writeContentRevisionProjection: 写入内容版本投影
+    //35. setCurrentRevision: 设置内容当前版本
+    //36. saveContentItem: 保存ContentItem对象
+    //37. recordContentCreationAudit: 记录内容创建审计
+    //38. return Managed: 返回内容管理对象
+
 @Service
 public class ContentManagementService {
     private final ContentItemRepository items;
@@ -102,24 +159,89 @@ public class ContentManagementService {
         if (accountLocks != null) accountLocks.requireActiveActor(actorId);
     }
 
+    //create方法用于创建内容，如果内容处于草稿状态，则创建内容。
     @Transactional
+    //create参数列表：Draft draft, String ownerProfileId, String actorId, String role, String requestId
+    //Draft draft: 内容草稿
+    //String ownerProfileId: 内容归属合作方
+    //String actorId: 操作人
+    //String role: 操作人角色
+    //String requestId: 请求id
+
+    //create方法的实现逻辑：
+    //1. 检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
+    //2. 准备内容，如果内容处于草稿状态，则准备内容。
+    //3. 创建ContentItem对象，如果内容处于草稿状态，则创建ContentItem对象。
+    //4. 设置内容模块key，如果内容模块key为空，则使用内容类型的默认模块key。
+    //5. 设置内容归属合作方，如果内容归属合作方为空，则使用内容类型的默认归属合作方。
+    //6. 保存ContentItem对象，如果内容处于草稿状态，则保存ContentItem对象。
+    //7. 创建内容版本，如果内容处于草稿状态，则创建内容版本。
+    //8. 保存内容版本，如果内容处于草稿状态，则保存内容版本。
+    //9. 写入内容版本投影，如果内容处于草稿状态，则写入内容版本投影。
+    //10. 设置内容当前版本，如果内容当前版本为空，则设置内容当前版本。
+    //11. 保存ContentItem对象，如果内容处于草稿状态，则保存ContentItem对象。
+    //12. 记录内容创建审计，如果内容处于草稿状态，则记录内容创建审计。
+    //13. 返回内容管理对象，如果内容处于草稿状态，则返回内容管理对象。
+
     public Managed create(Draft draft, String ownerProfileId, String actorId, String role, String requestId) {
+        //在create方法中，requireActiveActor方法用于检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
         requireActiveActor(actorId);
+        //在create方法中，prepare方法用于准备内容，如果内容处于草稿状态，则准备内容。
+        //准备的内容指的是：
+        //1. 内容类型
+        //2. 内容模块key
+        //3. 内容归属合作方
+        //4. 内容版本
+        //5. 内容版本投影
+
         Prepared prepared = prepare(draft, null);
+        //在create方法中，new ContentItem方法用于创建ContentItem对象，如果内容处于草稿状态，则创建ContentItem对象。
         ContentItem item = new ContentItem(Ids.ulid(), prepared.kind(), WorkflowStatus.DRAFT, Visibility.HIDDEN, RecordState.ACTIVE);
+        //在create方法中，setModuleKey方法用于设置内容模块key，如果内容模块key为空，则使用内容类型的默认模块key。
         item.setModuleKey(prepared.module().key());
+        //在create方法中，setOwnerPartnerProfileId方法用于设置内容归属合作方，如果内容归属合作方为空，则使用内容类型的默认归属合作方。
         item.setOwnerPartnerProfileId(ownerProfileId);
+        //在create方法中，saveAndFlush方法用于保存内容，如果内容处于草稿状态，则保存内容。
         item = items.saveAndFlush(item);
+        //在create方法中，revision方法用于创建内容版本，如果内容处于草稿状态，则创建内容版本。
         ContentRevision revision = revision(Ids.ulid(), item, 1, draft, prepared, actorId);
+        //在create方法中，saveAndFlush方法用于保存内容版本，如果内容处于草稿状态，则保存内容版本。
         revision = revisions.saveAndFlush(revision);
+        //在create方法中，writeRevisionProjections方法用于写入内容版本投影，如果内容处于草稿状态，则写入内容版本投影。
         writeRevisionProjections(revision.getId(), prepared.module(), prepared.kind(), draft.details());
+        //在create方法中，setCurrentRevision方法用于设置内容当前版本，如果内容当前版本为空，则设置内容当前版本。
         item.setCurrentRevision(revision);
+        //在create方法中，saveAndFlush方法用于保存内容，如果内容处于草稿状态，则保存内容。
         item = items.saveAndFlush(item);
+        //在create方法中，audit.record方法用于记录内容创建审计，如果内容处于草稿状态，则记录内容创建审计。
         audit.record(actorId, role, "CONTENT_CREATED", "CONTENT_ITEM", item.getId(), "{}", "{\"workflowStatus\":\"DRAFT\",\"moduleKey\":\"" + prepared.module().key() + "\"}", null, requestId);
+        //在create方法中，managed方法用于返回内容管理对象，如果内容处于草稿状态，则返回内容管理对象。
         return managed(item);
     }
 
-    @Transactional public Managed submit(String id, String ownerProfileId, String actorId, String role, String requestId) { requireActiveActor(actorId); ContentItem item = owned(id, ownerProfileId); submit(item, actorId, role, requestId); return managed(item); }
+    //submit方法用于提交内容，如果内容处于草稿状态，则提交内容。
+
+    //submit方法的实现逻辑：
+    //1. 检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
+    //2. 根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //3. 提交内容，如果内容处于草稿状态，则提交内容。
+    //4. 返回内容管理对象，如果内容处于草稿状态，则返回内容管理对象。
+    @Transactional 
+    public Managed submit(String id, String ownerProfileId, String actorId, String role, String requestId) { 
+        //在submit方法中，requireActiveActor方法用于检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
+        requireActiveActor(actorId); 
+        //在submit方法中，owned方法用于根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+        //如果找到了，则返回ContentItem对象。
+        //如果找不到，则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+        ContentItem item = owned(id, ownerProfileId); 
+        //在submit方法中，submit方法用于提交内容，如果内容处于草稿状态，则提交内容。
+
+        //“内容处于草稿状态”中的“草稿状态”对应ContentItem.java中的WorkflowStatus.DRAFT。
+
+        submit(item, actorId, role, requestId); 
+        //在submit方法中，managed方法用于返回内容管理对象，如果内容处于草稿状态，则返回内容管理对象。
+        return managed(item); 
+    }
     @Transactional public Managed submitAsAdmin(String id, String actorId, String role, String requestId) { requireActiveActor(actorId); ContentItem item = find(id); submit(item, actorId, role, requestId); return managed(item); }
     private void submit(ContentItem item, String actorId, String role, String requestId) {
         require(item.getWorkflowStatus() == WorkflowStatus.DRAFT || item.getWorkflowStatus() == WorkflowStatus.CHANGES_REQUESTED, "CONTENT_NOT_SUBMITTABLE");
@@ -171,29 +293,63 @@ public class ContentManagementService {
         return managed(item);
     }
 
+    //decide方法用于决定内容是否通过审核，如果内容处于待审核状态，则决定内容是否通过审核。
+
+    //decide方法的实现逻辑：
+    //1. 检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
+    //2. 根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //3. 检查送审内容是否处于待审核状态，如果不在待审核状态则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //4. 检查送审内容是否发生变化，如果发生变化则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //5. 检查送审内容是否至少需要一个有效行动入口后才能发布，如果不需要则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //6. 检查合作伙伴发布容量，如果容量不足则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
     @Transactional
     public Managed decide(String id, String decision, String reason, Long expectedVersion, String actorId, String role, String requestId) {
         requireActiveActor(actorId);
+
+        //find方法用于根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+        //在decide方法中，find方法用于根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+        //如果找到了，则返回ContentItem对象。
+        //如果找不到，则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         ContentItem item = find(id);
+        
+        //在decide方法中，expectedVersion方法用于检查送审内容是否发生变化，如果发生变化则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         if (expectedVersion == null || !Objects.equals(item.getVersion(), expectedVersion)) throw new ApiException(HttpStatus.CONFLICT, "CONTENT_VERSION_CONFLICT", "送审内容已发生变化，请刷新后重新审核。");
+        //在decide方法中，require方法用于检查送审内容是否处于待审核状态，如果不在待审核状态则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         require(item.getWorkflowStatus() == WorkflowStatus.PENDING_REVIEW, "CONTENT_NOT_IN_REVIEW");
+        //在decide方法中，normalizedReason方法用于检查审核原因是否为空，如果为空则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         String normalizedReason = reason == null ? null : reason.trim();
+        //在decide方法中，blank方法用于检查审核原因是否为空，如果为空则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         if (("CHANGES_REQUESTED".equals(decision) || "REJECT".equals(decision)) && blank(normalizedReason)) throw new ApiException(HttpStatus.BAD_REQUEST, "REVIEW_REASON_REQUIRED", "退回修改或拒绝时必须填写审核原因。");
+        //在decide方法中，decision方法用于检查审核决定是否为空，如果为空则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         String before = "{\"workflowStatus\":\"PENDING_REVIEW\"}";
+        //在decide方法中，approve方法用于批准内容，如果内容处于待审核状态，则批准内容。
         if ("APPROVE".equals(decision)) item.approve();
+        //在decide方法中，requestChanges方法用于请求更改，如果内容处于待审核状态，则请求更改。
         else if ("CHANGES_REQUESTED".equals(decision)) item.requestChanges();
+        //在decide方法中，reject方法用于拒绝内容，如果内容处于待审核状态，则拒绝内容。
         else if ("REJECT".equals(decision)) item.reject();
+        //在decide方法中，throw new ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         else throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_REVIEW_DECISION", "审核决定无效。");
+        //在decide方法中，touch方法用于更新内容，如果内容处于待审核状态，则更新内容。
         item.touch();
+        //在decide方法中，audit.recordReview方法用于记录审核审计，如果内容处于待审核状态，则记录审核审计。
         audit.recordReview(item.getId(), item.getCurrentRevision().getId(), actorId, decision, normalizedReason);
+        //在decide方法中，audit.record方法用于记录审核审计，如果内容处于待审核状态，则记录审核审计。
         audit.record(actorId, role, "REVIEW_" + decision, "CONTENT_ITEM", id, before, "{\"workflowStatus\":\"" + item.getWorkflowStatus() + "\"}", normalizedReason, requestId);
+        //在decide方法中，managed方法用于返回内容管理对象，如果内容处于待审核状态，则返回内容管理对象。
         return managed(item);
     }
 
+    //reopen方法用于重新打开内容，如果内容处于拒绝状态且记录状态为活动，则重新打开内容。
     @Transactional
     public Managed reopen(String id, String reason, String actorId, String role, String requestId) {
         requireActiveActor(actorId);
+
+        //在reopen方法中，find方法用于根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+        //如果找到了，则返回ContentItem对象。
+        //如果找不到，则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         ContentItem item = find(id);
+
         require(item.getWorkflowStatus() == WorkflowStatus.REJECTED && item.getRecordState() == RecordState.ACTIVE, "CONTENT_NOT_REOPENABLE");
         String normalizedReason = requireReason(reason);
         item.reopenForChanges();
@@ -203,24 +359,119 @@ public class ContentManagementService {
     }
 
     @Transactional
+    //publish方法用于发布内容，如果内容处于批准状态，则发布内容。
+
+    //publish方法的实现逻辑：
+    //1. 检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
+    //2. 根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //3. 检查送审内容是否处于批准状态，如果不在批准状态则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //4. 检查送审内容是否与文档匹配，如果匹配则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //5. 检查送审内容是否至少需要一个有效行动入口后才能发布，如果不需要则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //6. 检查合作伙伴发布容量，如果容量不足则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //7. 发布内容，如果内容处于批准状态，则发布内容。
     public Managed publish(String id, String actorId, String role, String requestId) {
+        //在publish方法中，requireActiveActor方法用于检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
         requireActiveActor(actorId);
+
+        //在publish方法中，findByIdForUpdate方法用于根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+        //findByIdForUpdate方法用于根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         ContentItem item = items.findByIdForUpdate(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "内容不存在。"));
+        //在publish方法中，require方法用于检查送审内容是否处于批准状态，如果不在批准状态则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         require(item.getWorkflowStatus() == WorkflowStatus.APPROVED, "CONTENT_NOT_APPROVED");
+        //在publish方法中，requireCurrentMediaMatchesDocument方法用于检查送审内容是否与文档匹配，如果匹配则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         requireCurrentMediaMatchesDocument(item.getCurrentRevision());
+        //在publish方法中，require方法用于检查送审内容是否至少需要一个有效行动入口后才能发布，如果不需要则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         if (item.getKind() == ContentKind.RECRUITMENT && (contentActions == null || !contentActions.hasEnabledAction(item.getCurrentRevision().getId()))) {
             throw new ApiException(HttpStatus.CONFLICT, "RECRUITMENT_ACTION_REQUIRED", "招募内容至少需要一个有效行动入口后才能发布。");
         }
+        //在publish方法中，requirePartnerPublicationCapacity方法用于检查合作伙伴发布容量，如果容量不足则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         requirePartnerPublicationCapacity(item);
+        //在publish方法中，publish方法用于发布内容，如果内容处于批准状态，则发布内容。
         item.publish();
+        //在publish方法中，audit.record方法用于记录发布审计，如果内容处于批准状态，则记录发布审计。
         audit.record(actorId, role, "CONTENT_PUBLISHED", "CONTENT_ITEM", id, "{\"visibility\":\"HIDDEN\"}", "{\"visibility\":\"PUBLIC\"}", null, requestId);
+        //在publish方法中，managed方法用于返回内容管理对象，如果内容处于批准状态，则返回内容管理对象。
         return managed(item);
     }
 
-    @Transactional public Managed hide(String id, String reason, String actorId, String role, String requestId) { requireActiveActor(actorId); ContentItem item = find(id); require(item.getPublishedRevision() != null && item.getVisibility() == Visibility.PUBLIC && item.getRecordState() == RecordState.ACTIVE, "CONTENT_NOT_HIDEABLE"); item.hide(); audit.record(actorId, role, "CONTENT_HIDDEN", "CONTENT_ITEM", id, "{\"visibility\":\"PUBLIC\"}", "{\"visibility\":\"HIDDEN\"}", requireReason(reason), requestId); return managed(item); }
-    @Transactional public Managed show(String id, String actorId, String role, String requestId) { requireActiveActor(actorId); ContentItem item = items.findByIdForUpdate(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "内容不存在。")); require(item.getPublishedRevision() != null && item.getPublicationStatus() != PublicationStatus.NONE && item.getRecordState() == RecordState.ACTIVE && item.getVisibility() == Visibility.HIDDEN, "CONTENT_NOT_SHOWABLE"); requirePartnerPublicationCapacity(item); item.show(); audit.record(actorId, role, "CONTENT_SHOWN", "CONTENT_ITEM", id, "{\"visibility\":\"HIDDEN\"}", "{\"visibility\":\"PUBLIC\"}", null, requestId); return managed(item); }
-    @Transactional public Managed archive(String id, String reason, String actorId, String role, String requestId) { requireActiveActor(actorId); ContentItem item = find(id); require(item.getPublishedRevision() != null && item.getRecordState() == RecordState.ACTIVE, "CONTENT_NOT_ARCHIVABLE"); item.archive(); audit.record(actorId, role, "CONTENT_ARCHIVED", "CONTENT_ITEM", id, "{\"recordState\":\"ACTIVE\"}", "{\"recordState\":\"ARCHIVED\"}", requireReason(reason), requestId); return managed(item); }
-    @Transactional public Managed restore(String id, String reason, String actorId, String role, String requestId) { requireActiveActor(actorId); ContentItem item = find(id); require(item.getRecordState() == RecordState.ARCHIVED, "CONTENT_NOT_RESTORABLE"); item.restore(); audit.record(actorId, role, "CONTENT_RESTORED", "CONTENT_ITEM", id, "{\"recordState\":\"ARCHIVED\"}", "{\"recordState\":\"ACTIVE\",\"visibility\":\"HIDDEN\",\"workflowStatus\":\"APPROVED\"}", reason, requestId); return managed(item); }
+    @Transactional 
+    
+    //hide方法用于隐藏内容，如果内容处于公开状态，则隐藏内容。
+    //hide方法的实现逻辑：
+    //1. 检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
+    //2. 根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //3. 检查送审内容是否处于公开状态，如果不在公开状态则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //4. 隐藏内容，如果内容处于公开状态，则隐藏内容。
+    //5. 记录隐藏审计，如果内容处于公开状态，则记录隐藏审计。
+    //6. 返回内容管理对象，如果内容处于公开状态，则返回内容管理对象。
+    public Managed hide(String id, String reason, String actorId, String role, String requestId) { 
+        //在hide方法中，requireActiveActor方法用于检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
+            requireActiveActor(actorId); ContentItem item = find(id); 
+            //在hide方法中，require方法用于检查送审内容是否处于公开状态，如果不在公开状态则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+            require(item.getPublishedRevision() != null && item.getVisibility() == Visibility.PUBLIC && item.getRecordState() == RecordState.ACTIVE, "CONTENT_NOT_HIDEABLE"); 
+            //在hide方法中，hide方法用于隐藏内容，如果内容处于公开状态，则隐藏内容。
+            item.hide(); 
+            //在hide方法中，audit.record方法用于记录隐藏审计，如果内容处于公开状态，则记录隐藏审计。
+            audit.record(actorId, role, "CONTENT_HIDDEN", "CONTENT_ITEM", id, "{\"visibility\":\"PUBLIC\"}", "{\"visibility\":\"HIDDEN\"}", requireReason(reason), requestId); 
+            //在hide方法中，managed方法用于返回内容管理对象，如果内容处于公开状态，则返回内容管理对象。
+            return managed(item); 
+    }
+
+    @Transactional 
+    //show方法用于显示内容，如果内容处于隐藏状态，则显示内容。
+    //show方法的实现逻辑：
+    //1. 检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
+    //2. 根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //3. 检查送审内容是否处于隐藏状态，如果不在隐藏状态则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //4. 检查合作伙伴发布容量，如果容量不足则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //5. 显示内容，如果内容处于隐藏状态，则显示内容。
+    //6. 记录显示审计，如果内容处于隐藏状态，则记录显示审计。
+    public Managed show(String id, String actorId, String role, String requestId) { 
+            //在show方法中，requireActiveActor方法用于检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
+            requireActiveActor(actorId); 
+            //在show方法中，findByIdForUpdate方法用于根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+            ContentItem item = items.findByIdForUpdate(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "内容不存在。")); 
+            //在show方法中，require方法用于检查送审内容是否处于隐藏状态，如果不在隐藏状态则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+            require(item.getPublishedRevision() != null && item.getPublicationStatus() != PublicationStatus.NONE && item.getRecordState() == RecordState.ACTIVE && item.getVisibility() == Visibility.HIDDEN, "CONTENT_NOT_SHOWABLE"); 
+            //在show方法中，requirePartnerPublicationCapacity方法用于检查合作伙伴发布容量，如果容量不足则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+            requirePartnerPublicationCapacity(item);
+            //在show方法中，show方法用于显示内容，如果内容处于隐藏状态，则显示内容。
+            item.show(); 
+            //在show方法中，audit.record方法用于记录显示审计，如果内容处于隐藏状态，则记录显示审计。
+            audit.record(actorId, role, "CONTENT_SHOWN", "CONTENT_ITEM", id, "{\"visibility\":\"HIDDEN\"}", "{\"visibility\":\"PUBLIC\"}", null, requestId); 
+            //在show方法中，managed方法用于返回内容管理对象，如果内容处于隐藏状态，则返回内容管理对象。
+            return managed(item); 
+    }
+
+    //archive方法用于归档内容，如果内容处于活跃状态，则归档内容。
+    //archive方法的实现逻辑：
+    //1. 检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
+    //2. 根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //3. 检查送审内容是否处于活跃状态，如果不在活跃状态则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //4. 归档内容，如果内容处于活跃状态，则归档内容。
+    //5. 记录归档审计，如果内容处于活跃状态，则记录归档审计。
+    //6. 返回内容管理对象，如果内容处于活跃状态，则返回内容管理对象。
+    @Transactional public Managed archive(String id, String reason, String actorId, String role, String requestId) { 
+            requireActiveActor(actorId); ContentItem item = find(id); 
+            require(item.getPublishedRevision() != null && item.getRecordState() == RecordState.ACTIVE, "CONTENT_NOT_ARCHIVABLE"); 
+            item.archive(); audit.record(actorId, role, "CONTENT_ARCHIVED", "CONTENT_ITEM", id, "{\"recordState\":\"ACTIVE\"}", "{\"recordState\":\"ARCHIVED\"}", requireReason(reason), requestId); 
+            return managed(item); 
+    }
+
+    //restore方法用于恢复内容，如果内容处于归档状态，则恢复内容。
+    //restore方法的实现逻辑：
+    //1. 检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
+    //2. 根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //3. 检查送审内容是否处于归档状态，如果不在归档状态则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //4. 恢复内容，如果内容处于归档状态，则恢复内容。
+    //5. 记录恢复审计，如果内容处于归档状态，则记录恢复审计。
+    //6. 返回内容管理对象，如果内容处于归档状态，则返回内容管理对象。
+    @Transactional public Managed restore(String id, String reason, String actorId, String role, String requestId) { 
+        requireActiveActor(actorId); 
+        ContentItem item = find(id); 
+        require(item.getRecordState() == RecordState.ARCHIVED, "CONTENT_NOT_RESTORABLE"); 
+        item.restore(); audit.record(actorId, role, "CONTENT_RESTORED", "CONTENT_ITEM", id, "{\"recordState\":\"ARCHIVED\"}", "{\"recordState\":\"ACTIVE\",\"visibility\":\"HIDDEN\",\"workflowStatus\":\"APPROVED\"}", reason, requestId); return managed(item); 
+    }
     @Transactional public Managed delete(String id, String reason, String actorId, String role, String requestId) { requireActiveActor(actorId); ContentItem item = find(id); item.markDeleted(); audit.record(actorId, role, "CONTENT_DELETED", "CONTENT_ITEM", id, "{}", "{\"recordState\":\"DELETED\",\"visibility\":\"HIDDEN\"}", reason, requestId); return managed(item); }
 
     @Transactional
@@ -422,15 +673,63 @@ public class ContentManagementService {
         } catch (ApiException error) { throw error; }
         catch (Exception error) { throw new IllegalStateException("Invalid persisted content document", error); }
     }
-    private Managed managed(ContentItem item) { String moduleKey = item.getModuleKey() == null ? modules.legacyModuleKey(item.getKind()) : item.getModuleKey(); List<ReviewRecord> history = reviews(item.getId()); return new Managed(item.getId(), item.getKind(), moduleKey, item.getWorkflowStatus(), item.getPublicationStatus(), item.getVisibility(), item.getRecordState(), item.getCurrentRevision().getTitle(), item.getVersion() == null ? 0 : item.getVersion(), item.getOwnerPartnerProfileId(), item.getSubmittedAt(), history.isEmpty() ? null : history.get(0), item.getOperationalStatus()); }
-    private ContentItem find(String id) { return items.findWithCurrentRevisionById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "内容不存在。")); }
-    private ContentItem owned(String id, String profileId) { ContentItem item = find(id); if (!Objects.equals(item.getOwnerPartnerProfileId(), profileId)) throw new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "内容不存在或当前不可见。"); return item; }
+
+    //managed方法用于获取内容的管理状态，包括内容模块、审核历史、发布状态、可见性、记录状态、标题、版本、归属合作方、提交时间、最新审核记录和运营状态。
+    //响应中的revision就是content_item的current_revision
+    private Managed managed(ContentItem item) { 
+            
+            //如果内容模块的key为空，则使用内容类型的默认模块key。
+            String moduleKey = item.getModuleKey() == null ? modules.legacyModuleKey(item.getKind()) : item.getModuleKey(); 
+            //reviews方法用于获取内容的历史审核记录。
+            List<ReviewRecord> history = reviews(item.getId()); 
+            //返回Managed对象，包括内容id、内容类型、内容模块key、审核状态、发布状态、可见性、记录状态、标题、版本、归属合作方、提交时间、最新审核记录和运营状态。
+            return new Managed(item.getId(), item.getKind(), moduleKey, item.getWorkflowStatus(), item.getPublicationStatus(), item.getVisibility(), item.getRecordState(), item.getCurrentRevision().getTitle(), item.getVersion() == null ? 0 : item.getVersion(), item.getOwnerPartnerProfileId(), item.getSubmittedAt(), history.isEmpty() ? null : history.get(0), item.getOperationalStatus()); 
+    }
+
+    //find方法用于根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    private ContentItem find(String id) { 
+        //在find方法中，findWithCurrentRevisionById方法用于根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+        //如果找到了，则返回ContentItem对象。
+        //如果找不到，则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+        return items.findWithCurrentRevisionById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "内容不存在。")); 
+    }
+
+    //owned方法用于检查内容是否属于指定的合作方，如果内容不属于指定的合作方则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    private ContentItem owned(String id, String profileId) { 
+        //在owned方法中，find方法用于根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+        //如果找到了，则返回ContentItem对象。
+        //如果找不到，则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+        ContentItem item = find(id); 
+        //如果内容不属于指定的合作方，则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+        if (!Objects.equals(item.getOwnerPartnerProfileId(), profileId)) throw new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "内容不存在或当前不可见。");
+        //返回ContentItem对象。
+        return item; 
+    }
+    
+    //lockedOwned方法用于检查内容是否属于指定的合作方，如果内容不属于指定的合作方则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
     private ContentItem lockedOwned(String id, String profileId) {
+        //在lockedOwned方法中，findByIdForUpdate方法用于根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+        //如果找到了，则返回ContentItem对象。
+        //如果找不到，则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         ContentItem item = items.findByIdForUpdate(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "内容不存在。"));
+        //如果内容不属于指定的合作方，则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         if (profileId != null && !Objects.equals(item.getOwnerPartnerProfileId(), profileId)) throw new ApiException(HttpStatus.NOT_FOUND, "CONTENT_NOT_FOUND", "内容不存在或当前不可见。");
+        //返回ContentItem对象。
         return item;
     }
-    private String moduleFromKind(String kind) { try { return modules.legacyModuleKey(ContentKind.valueOf(kind)); } catch (Exception error) { throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_CONTENT_KIND", "内容类型无效。"); } }
+
+
+    //moduleFromKind方法用于根据内容类型获取内容模块key。
+    private String moduleFromKind(String kind) { 
+        try { 
+            return modules.legacyModuleKey(ContentKind.valueOf(kind)); 
+        } 
+        catch (Exception error) { 
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_CONTENT_KIND", "内容类型无效。"); 
+        } 
+    }
+
+    //validateRelatedCompetitions方法用于验证关联竞赛是否存在。
     private void validateRelatedCompetitions(JsonNode details) {
         for (String related : RelatedContentIds.fromDetails(details)) {
             ContentItem target = items.findById(related).orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "RELATED_COMPETITION_NOT_FOUND", "关联竞赛不存在。"));
@@ -438,14 +737,32 @@ public class ContentManagementService {
         }
     }
 
+    //parseDeadlineAt方法用于解析截止时间。
     private Timestamp parseDeadlineAt(JsonNode details) { String value = text(details, "deadlineAt"); if (blank(value)) return null; try { return Timestamp.from(Instant.parse(value)); } catch (Exception error) { throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_DEADLINE", "截止时间格式无效。 "); } }
+    
+
+    //parseDeadlineDate方法用于解析截止日期。
     private Date parseDeadlineDate(JsonNode details) { String value = text(details, "deadlineDate"); if (blank(value)) return null; try { return Date.valueOf(LocalDate.parse(value)); } catch (Exception error) { throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_DEADLINE", "截止日期格式无效。 "); } }
+
+    //json方法用于将JsonNode对象序列化为字符串。
     private String json(JsonNode value) { try { return mapper.writeValueAsString(value); } catch (Exception error) { throw new IllegalStateException("Cannot serialize content document", error); } }
+
+    //quote方法用于将字符串转换为JSON字符串。
     private String quote(String value) { return value == null ? "null" : "\"" + value.replace("\"", "\\\"") + "\""; }
+
+    //text方法用于获取JsonNode对象的文本值。
     private String text(JsonNode value, String field) { return value == null ? "" : value.path(field).asText("").trim(); }
+
+    //nullable方法用于将字符串转换为空值。
     private String nullable(String value) { return blank(value) ? null : value.trim(); }
+
+    //blank方法用于检查字符串是否为空。
     private boolean blank(String value) { return value == null || value.isBlank(); }
+
+    //requireReason方法用于检查操作原因是否为空。
     private String requireReason(String value) { String normalized = value == null ? "" : value.trim(); if (normalized.isBlank()) throw new ApiException(HttpStatus.BAD_REQUEST, "ACTION_REASON_REQUIRED", "请填写操作原因。"); return normalized; }
+
+    //requirePartnerPublicationCapacity方法用于检查合作伙伴发布容量。
     private void requirePartnerPublicationCapacity(ContentItem item) {
         if (item.getOwnerPartnerProfileId() == null) return;
         PartnerProfile profile = profiles.findByIdForUpdate(item.getOwnerPartnerProfileId()).orElseThrow(() -> new ApiException(HttpStatus.CONFLICT, "PARTNER_PROFILE_INACTIVE", "内容归属合作方当前不可用。"));
@@ -454,5 +771,9 @@ public class ContentManagementService {
         boolean alreadyPublic = item.getPublishedRevision() != null && item.getVisibility() == Visibility.PUBLIC && item.getRecordState() == RecordState.ACTIVE;
         if (!alreadyPublic && active >= profile.getContentQuota()) throw new ApiException(HttpStatus.CONFLICT, "PARTNER_QUOTA_EXCEEDED", "该合作方公开活跃内容已达到配额 " + active + " / " + profile.getContentQuota() + "。请先调整配额或隐藏其他内容。");
     }
-    private void require(boolean condition, String code) { if (!condition) throw new ApiException(HttpStatus.CONFLICT, code, "当前内容状态不支持该操作。 "); }
+
+    //require方法用于检查条件是否满足，如果不满足则抛出ApiException异常(统一409状态码)，并返回指定的错误代码和错误信息。
+    private void require(boolean condition, String code) { 
+            if (!condition) throw new ApiException(HttpStatus.CONFLICT, code, "当前内容状态不支持该操作。 "); 
+        }
 }

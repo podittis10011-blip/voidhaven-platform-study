@@ -1,0 +1,52 @@
+flowchart TB
+    subgraph HTTP["① HTTP 层 — PublicContentController"]
+        A["GET /api/v1/public/resources<br/>?pageSize & cursor & q & sort<br/>& filterKey & filterValue & status"]
+        A --> B["resources()<br/>绑定参数，零业务逻辑"]
+        B --> C["content.listCatalog(<br/>RESOURCE, null, ...)"]
+    end
+
+    subgraph SVC["② 编排层 — ContentService.listCatalog"]
+        C --> D["pageSize 夹取 [1, 50]"]
+        D --> E["解析 module / resolvedKind"]
+        E --> F{"filterKey 与 filterValue<br/>是否成对？"}
+        F -->|否| F400["400 CONTENT_FILTER_INCOMPLETE"]
+        F -->|是| G{"status 在白名单内？"}
+        G -->|否| G400["400 CATALOG_STATUS_INVALID"]
+        G -->|是| H["CatalogSort.resolve<br/>决定 applied 排序"]
+        H --> I["CatalogCursor.decode<br/>解码游标"]
+        I --> J{"有筛选？"}
+        J -->|是| K["校验字段 + 类型绑定<br/>date/number/text"]
+        K -->|失败| K400["400 CONTENT_FILTER_INVALID"]
+        J -->|否| L
+        K --> L["CatalogQuery.selectIds<br/>limit = pageSize + 1"]
+    end
+
+    subgraph SQL["③ 查询层 — CatalogQuery + JdbcTemplate"]
+        L --> M["拼 SQL：JOIN + WHERE + 游标 + ORDER BY"]
+        M --> N["JdbcTemplate.query<br/>返回 List RankedId<br/>仅 id + sort_key"]
+    end
+
+    subgraph ASM["④ 组装层 — ContentService 后半段"]
+        N --> O{"ranked.size() > pageSize?"}
+        O -->|是| P["hasNext = true<br/>截断为前 pageSize 条"]
+        O -->|否| Q["hasNext = false<br/>全部保留"]
+        P --> R["提取 ids 列表"]
+        Q --> R
+        R --> S["inOrder(ids)<br/>按序回查实体"]
+        S --> T["filter hasPublicSource<br/>来源 fail-closed 过滤"]
+        T --> U["map toPublic false<br/>列表轻量 DTO"]
+        U --> V{"hasNext && page 非空?"}
+        V -->|是| W["nextCursor = encode<br/>applied, last.key, last.id"]
+        V -->|否| X["nextCursor = null"]
+        W --> Y["PublicPage items, nextCursor, sort"]
+        X --> Y
+    end
+
+    subgraph OUT["⑤ 响应层"]
+        Y --> Z["Controller.ok()<br/>包装 ApiResponse + requestId"]
+        Z --> END["JSON 返回前端"]
+    end
+
+    style F400 fill:#fee,stroke:#c00
+    style G400 fill:#fee,stroke:#c00
+    style K400 fill:#fee,stroke:#c00
