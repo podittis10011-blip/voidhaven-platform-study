@@ -78,7 +78,12 @@ public class PasswordService {
         return account.getLoginId();
     }
 
-    private void deleteSessions(String loginId) { jdbc.update("delete from SPRING_SESSION where PRINCIPAL_NAME = ?", loginId); }
+    //删除会话
+    private void deleteSessions(String loginId) { 
+        //删除会话
+        jdbc.update("delete from SPRING_SESSION where PRINCIPAL_NAME = ?", loginId);     
+    }
+
     private void requireDifferentAndValid(String current, String next) {
         if (next == null || next.length() < 12 || next.length() > 128) throw new ApiException(HttpStatus.BAD_REQUEST, "PASSWORD_POLICY_FAILED", "密码长度必须为 12 到 128 个字符。");
         if (next.equals(current)) throw new ApiException(HttpStatus.BAD_REQUEST, "PASSWORD_UNCHANGED", "新密码不能与当前密码相同。");

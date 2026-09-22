@@ -61,18 +61,43 @@ public class RateLimitLockService {
         });
     }
 
+    //reserveAuth的实现：
+    //1. 检查网络是否在20次/15min的桶中
+    //2. 检查登录名是否在5次/15min的桶中
+    //3. 如果网络或登录名在桶中，则返回错误
+    //4. 如果网络或登录名不在桶中，则返回成功
     public String reserveAuth(String scope, String subjectHash, int maximum, Duration ttl, String outcome) {
+        //参数：scope, subjectHash, maximum, ttl, outcome
+        //scope：LOGIN_ID或LOGIN_NETWORK
+        //subjectHash：登录名或网络
+        //maximum：最大次数
+        //ttl：过期时间
+        //outcome：ATTEMPT或SUCCESS或FAILURE
+
+        //independent.execute的作用是：
+        //1. 锁定网络或登录名
+        //2. 检查网络或登录名是否在桶中
+        //3. 如果网络或登录名在桶中，则返回错误
+        //4. 如果网络或登录名不在桶中，则返回成功
         return independent.execute(status -> {
+            //锁定网络或登录名
             lockSubject(scope, subjectHash);
+            //检查网络或登录名是否在桶中
+
+            //检查网络或登录名是否在桶中
             Integer count = jdbc.queryForObject(
                     "select count(*) from auth_rate_limit_events where scope = ? and subject_hash = ? and outcome in ('ATTEMPT','FAILURE') and expires_at > current_timestamp(6)",
                     Integer.class, scope, subjectHash);
+            //如果网络或登录名在桶中，则返回错误
             if (count != null && count >= maximum) {
                 throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "AUTH_RATE_LIMITED", "尝试过于频繁，请在 15 分钟后重试。");
             }
+            //创建一个唯一的ID
             String id = Ids.ulid();
+            //插入网络或登录名到桶中
             jdbc.update("insert into auth_rate_limit_events (id, scope, subject_hash, outcome, expires_at) values (?, ?, ?, ?, ?)",
                     id, scope, subjectHash, outcome, Timestamp.from(Instant.now().plus(ttl)));
+            //返回唯一的ID
             return id;
         });
     }

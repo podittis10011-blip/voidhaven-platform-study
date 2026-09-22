@@ -474,10 +474,17 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   return (payload as Envelope<T>).data
 }
 
+//CSRF的定义概念及作用：
+//CSRF（Cross-Site Request Forgery）：防止跨站请求伪造，保护用户的安全
+//CSRF的实现方式是：在请求头中添加CSRF token，然后在服务器端验证CSRF token
+//protectedRequest：保护请求，会先获取CSRF token，然后添加到请求头中
 async function protectedRequest<T>(path: string, init: RequestInit) {
+  //获取CSRF token
   const csrf = await request<CsrfPayload>('/auth/csrf')
+  //添加CSRF token到请求头中
   return request<T>(path, { ...init, headers: { ...init.headers, [csrf.headerName]: csrf.token } })
 }
+
 const jsonWrite = (body?: unknown, idempotencyKey?: string): RequestInit => ({
   method: 'POST',
   headers: {

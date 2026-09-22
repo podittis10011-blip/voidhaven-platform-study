@@ -36,10 +36,20 @@ public class AuthenticationRateLimiter {
         this.window = Duration.ofMinutes(windowMinutes);
     }
 
+    //beginLogin
     public String beginLogin(String loginId, String networkSubject) {
         String networkHash = hash("network:" + networkSubject);
         String loginHash = hash("login:" + loginId.trim().toLowerCase());
+
+        //locks.reserveAuth的作用是：
+        //1. 检查网络是否在20次/15min的桶中
+        //2. 检查登录名是否在5次/15min的桶中
+        //3. 如果网络或登录名在桶中，则返回错误
+        //4. 如果网络或登录名不在桶中，则返回成功
+        //reserveAuth的实现代码在RateLimitLockService.java文件中
         locks.reserveAuth(RateLimitLockService.LOGIN_NETWORK, networkHash, loginNetworkLimit, window, "ATTEMPT");
+        
+        //返回唯一的ID
         return locks.reserveAuth(RateLimitLockService.LOGIN_ID, loginHash, loginFailureLimit, window, "ATTEMPT");
     }
 
