@@ -39,6 +39,7 @@ public class MediaService {
     public record Uploaded(String id, String url, String mediaType, int width, int height, String altText) { }
 
     @Transactional
+    //
     public Uploaded upload(String contentItemId, String altText, byte[] input, String actorId, String role, boolean administrator, String requestId) {
         if (accountLocks != null) accountLocks.requireActiveActor(actorId);
         if (altText == null || altText.isBlank() || altText.length() > 240) throw new ApiException(HttpStatus.BAD_REQUEST, "MEDIA_ALT_TEXT_REQUIRED", "请提供不超过 240 字的图片说明。 ");

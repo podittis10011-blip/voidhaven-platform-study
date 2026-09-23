@@ -73,6 +73,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)).exceptionHandling(errors -> errors.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))).httpBasic(httpBasic -> httpBasic.disable())
             .addFilterAfter(accountEligibilityFilter, SecurityContextHolderFilter.class).build();
         // 返回一个HttpSecurity Bean。
-        return http;
+        return http.build();
+   
     }
 }

@@ -122,10 +122,27 @@ public class RateLimitLockService {
         });
     }
 
+    //lockSubject的实现：
+    //1. 锁定网络或登录名
+    //2. 检查网络或登录名是否在桶中
+    //3. 如果网络或登录名在桶中，则返回错误
+    //4. 如果网络或登录名不在桶中，则返回成功
     private void lockSubject(String scope, String subjectHash) {
+        //参数：scope, subjectHash
+        //scope：LOGIN_ID或LOGIN_NETWORK
+        //subjectHash：登录名或网络
+
+        //jdbc.update的作用是：
+        //1. 插入网络或登录名到桶中
+        //2. 检查网络或登录名是否在桶中
         jdbc.update("insert into rate_limit_locks (scope, subject_hash) values (?, ?) on duplicate key update subject_hash = subject_hash",
                 scope, subjectHash);
+
+                
+        //查询网络或登录名是否在桶中
         jdbc.queryForObject("select scope from rate_limit_locks where scope = ? and subject_hash = ? for update",
                 String.class, scope, subjectHash);
+        //如果网络或登录名在桶中，则抛出异常
+        //如果网络或登录名不在桶中，则返回成功
     }
 }

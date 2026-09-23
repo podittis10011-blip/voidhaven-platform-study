@@ -221,7 +221,30 @@ CREATE TABLE private_contact_records (
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   INDEX idx_private_contact_cleanup (delete_after)
 );
+
+-- 幂等性的作用是什么？
+-- 幂等性的作用是：
+-- 1. 防止重复请求
+-- 2. 防止重复操作
+-- 3. 防止重复提交
+-- 4. 防止重复登录
+-- 5. 防止重复注册
+-- 6. 防止重复支付
+-- 7. 防止重复发送邮件
+
+-- 幂等性记录表
+-- idempotency_records：幂等性记录表
+-- idempotency_records的作用是：
 CREATE TABLE idempotency_records (
+  -- id：幂等性记录的唯一标识
+  -- idempotency_key：幂等性请求的唯一标识
+  -- request_hash：幂等性请求的请求哈希
+  -- response_status：幂等性请求的响应状态
+  -- response_body：幂等性请求的响应体
+  -- expires_at：幂等性请求的过期时间
+  -- created_at：幂等性请求的创建时间
+  -- UNIQUE (idempotency_key)：幂等性请求的唯一标识
+  -- INDEX idx_idempotency_cleanup (expires_at)：幂等性请求的过期时间索引
   id CHAR(26) PRIMARY KEY,
   idempotency_key VARCHAR(128) NOT NULL,
   request_hash CHAR(64) NOT NULL,

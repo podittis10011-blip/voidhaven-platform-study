@@ -35,20 +35,48 @@ public class PublicCaseService {
         this.privateValues = privateValues;
     }
 
+    //createSubmission:创建提交
+    //该提交指的是：内容提交、反馈提交、版权提交，均属于公开提交栏目
+
+    //createSubmission的实现：
+    //1. 检查联系人是否为空
+    //2. 如果联系人不为空，则加密联系人
+    //3. 如果联系人不为空，则执行操作
+    //4. 如果操作执行成功，则返回创建的案例
+    //5. 如果操作执行失败，则抛出异常
     public CreatedCase createSubmission(String idempotencyKey, SubmissionCommand command) {
+        //检查联系人是否为空
         String contact = blankToNull(command.contact());
-        if (command.submissionType() == SubmissionType.COPYRIGHT && contact == null) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "CONTACT_REQUIRED", "版权请求必须提供可联系到你的方式。");
-        }
+        //如果联系人不为空，则加密联系人
+        if (command.submissionType() == SubmissionType.COPYRIGHT && contact == null) throw new ApiException(HttpStatus.BAD_REQUEST, "CONTACT_REQUIRED", "版权请求必须提供可联系到你的方式。");
+        //如果联系人不为空，则加密联系人
         if (contact != null) privateValues.requireEnabled();
+        //如果联系人不为空，则执行操作
         return idempotency.executeSingleDelivery(idempotencyKey, command, () -> createSubmission(command, contact));
+        //如果操作执行成功，则返回创建的案例
+        //如果操作执行失败，则抛出异常
     }
 
+
+    //createPartnerSubmission:创建合作伙伴提交
+
+    //createPartnerApplication的实现：
+    //1. 检查联系人是否为空
+    //2. 如果联系人不为空，则加密联系人
+    //3. 如果联系人不为空，则执行操作
+    //4. 如果操作执行成功，则返回创建的案例
+    //5. 如果操作执行失败，则抛出异常
     public CreatedCase createPartnerApplication(String idempotencyKey, PartnerApplicationCommand command) {
+        //检查联系人是否为空
         String contact = blankToNull(command.contact());
+        //如果联系人不为空，则抛出异常
         if (contact == null) throw new ApiException(HttpStatus.BAD_REQUEST, "CONTACT_REQUIRED", "合作申请必须提供联系方式。");
+        //如果联系人不为空，则加密联系人
         privateValues.requireEnabled();
+        //如果联系人不为空，则执行操作
         return idempotency.executeSingleDelivery(idempotencyKey, command, () -> createPartnerApplication(command, contact));
+        //如果操作执行成功，则返回创建的案例
+        //如果操作执行失败，则抛出异常
     }
 
     @Transactional

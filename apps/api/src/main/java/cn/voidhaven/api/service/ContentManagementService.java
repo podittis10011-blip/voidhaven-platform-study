@@ -251,33 +251,60 @@ public class ContentManagementService {
     }
 
     @Transactional
+    //revise方法的作用是：修订内容
+    //该修订指的是：内容修订、内容版本修订，均属于内容修订栏目
+
+    //revise方法的实现：
+    //1. 检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
+    //2. 根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //3. 检查送审内容是否处于待审核状态，如果不在待审核状态则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //4. 检查送审内容是否发生变化，如果发生变化则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //5. 检查送审内容是否至少需要一个有效行动入口后才能发布，如果不需要则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //6. 检查合作伙伴发布容量，如果容量不足则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+    //7. 返回内容管理对象，如果内容处于待审核状态，则返回内容管理对象。
     public Managed revise(String id, Draft draft, String ownerProfileId, Long expectedVersion, String actorId, String role, String requestId) {
+        //requireActiveActor方法用于检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
         requireActiveActor(actorId);
-        // Locked (not find()/owned()): two concurrent edits of a PUBLISHED item both
-        // increment revision_number from the same value, so without serializing here the
-        // second saveAndFlush() would race the first and hit the
-        // UNIQUE (content_item_id, revision_number) constraint instead of the intended
-        // CONTENT_VERSION_CONFLICT response.
+        //lockedOwned方法用于根据id查找ContentItem对象，如果找不到则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+        //如果找到了，则返回ContentItem对象。
+        //如果找不到，则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         ContentItem item = lockedOwned(id, ownerProfileId);
+        //expectedVersion方法用于检查送审内容是否发生变化，如果发生变化则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         if (expectedVersion == null || !Objects.equals(item.getVersion(), expectedVersion)) throw new ApiException(HttpStatus.CONFLICT, "CONTENT_VERSION_CONFLICT", "内容已被其他操作更新，请刷新后再编辑。");
+
+        //require方法用于检查送审内容是否处于待审核状态，如果不在待审核状态则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         require(item.getRecordState() == RecordState.ACTIVE, "CONTENT_NOT_EDITABLE");
         require(item.getWorkflowStatus() == WorkflowStatus.DRAFT || item.getWorkflowStatus() == WorkflowStatus.CHANGES_REQUESTED || item.getWorkflowStatus() == WorkflowStatus.PUBLISHED, "CONTENT_NOT_EDITABLE");
+            
+        //prepare方法用于准备内容，如果内容处于待审核状态，则准备内容。
         Prepared prepared = prepare(draft, item);
+        //previous方法用于获取当前内容版本，如果内容处于待审核状态，则获取当前内容版本。
         ContentRevision previous = item.getCurrentRevision();
+        //nextRevision方法用于获取下一个内容版本，如果内容处于待审核状态，则获取下一个内容版本。
         int nextRevision = previous.getRevisionNumber();
+        //createCandidate方法用于检查是否需要创建候选版本，如果需要则创建候选版本。
         boolean createCandidate = item.getWorkflowStatus() == WorkflowStatus.PUBLISHED;
         ContentRevision revision;
         if (createCandidate) {
+            //nextRevision方法用于获取下一个内容版本，如果内容处于待审核状态，则获取下一个内容版本。
             nextRevision++;
+            //revision方法用于创建内容版本，如果内容处于待审核状态，则创建内容版本。
             revision = revisions.saveAndFlush(revision(Ids.ulid(), item, nextRevision, draft, prepared, actorId));
+            //copyReferencedMedia方法用于复制引用媒体，如果内容处于待审核状态，则复制引用媒体。
             copyReferencedMedia(previous.getId(), revision.getId(), markdown.mediaIds(prepared.document()));
+            //writeRevisionProjections方法用于写入内容版本投影，如果内容处于待审核状态，则写入内容版本投影。
             writeRevisionProjections(revision.getId(), prepared.module(), prepared.kind(), draft.details());
+            //contentActions方法用于复制内容动作，如果内容处于待审核状态，则复制内容动作。
             if (contentActions != null) contentActions.copyActions(previous.getId(), revision.getId());
+            //item方法用于设置当前内容版本，如果内容处于待审核状态，则设置当前内容版本。
             item.setCurrentRevision(revision);
         } else {
+            //previous方法用于获取当前内容版本，如果内容处于待审核状态，则获取当前内容版本。
             revision = previous;
+            //syncReferencedMedia方法用于同步引用媒体，如果内容处于待审核状态，则同步引用媒体。
             syncReferencedMedia(revision.getId(), markdown.mediaIds(prepared.document()));
             replaceRevisionProjections(revision.getId(), prepared.module(), prepared.kind(), draft.details());
+            //updateDraft方法用于更新内容草稿，如果内容处于待审核状态，则更新内容草稿。
             revision.updateDraft(draft.title().trim(), draft.summary().trim(), json(prepared.document()), prepared.language(),
                     nullable(draft.originalTitle()), prepared.sourceUrl(), prepared.sourceName(), draft.rightsBasis().trim(),
                     draft.authorDisplayName().trim(), draft.reprintPermission().trim(), draft.adaptationPermission().trim(),
@@ -285,11 +312,15 @@ public class ContentManagementService {
                     json(modules.snapshot(prepared.module())), json(draft.details()));
             revisions.saveAndFlush(revision);
         }
+        //beginCandidateRevision方法用于开始候选版本，如果内容处于待审核状态，则开始候选版本。
         item.beginCandidateRevision();
+        //items方法用于保存内容，如果内容处于待审核状态，则保存内容。
         item = items.saveAndFlush(item);
+        //audit方法用于记录审计，如果内容处于待审核状态，则记录审计。
         audit.record(actorId, role, createCandidate ? "CONTENT_REVISION_CREATED" : "CONTENT_DRAFT_SAVED", "CONTENT_ITEM", id,
                 "{\"revision\":" + (createCandidate ? nextRevision - 1 : nextRevision) + "}",
                 "{\"revision\":" + nextRevision + ",\"workflowStatus\":\"DRAFT\"}", null, requestId);
+        //managed方法用于返回内容管理对象，如果内容处于待审核状态，则返回内容管理对象。
         return managed(item);
     }
 

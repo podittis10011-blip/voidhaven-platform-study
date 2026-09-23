@@ -15,11 +15,26 @@ import java.util.Locale;
 
 /** Decodes the real image and re-encodes pixels, removing EXIF and other input metadata. */
 @Component
+//MediaValidator的作用是：验证媒体
+//该验证指的是：媒体验证，均属于媒体验证栏目
+
 public class MediaValidator {
+    //MAX_BYTES的作用是：最大字节数
     static final long MAX_BYTES = 5L * 1024 * 1024;
+    //MAX_PIXELS的作用是：最大像素数
     static final long MAX_PIXELS = 25_000_000;
+    //MAX_EDGE的作用是：最大边缘数
     static final int MAX_EDGE = 6_000;
 
+    //validate的作用是：验证媒体
+    //该验证指的是：媒体验证，均属于媒体验证栏目
+
+    //validate的实现：
+    //1. 检查媒体是否为空，如果媒体为空则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
+    //2. 检查媒体是否大于5MB，如果媒体大于5MB则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
+    //3. 检查媒体是否为JPEG、PNG或WebP图片，如果媒体不是JPEG、PNG或WebP图片则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
+    //4. 检查媒体是否超过安全限制，如果媒体超过安全限制则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
+    //5. 检查媒体是否可以安全解析，如果媒体不可以安全解析则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
     public ValidatedImage validate(byte[] input) {
         if (input == null || input.length == 0 || input.length > MAX_BYTES) throw rejected("单张图片必须小于等于 5 MB。 ");
         try (ImageInputStream stream = ImageIO.createImageInputStream(new ByteArrayInputStream(input))) {

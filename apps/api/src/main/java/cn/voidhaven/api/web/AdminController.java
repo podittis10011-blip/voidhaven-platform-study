@@ -394,9 +394,13 @@ public class AdminController {
         return ok(idempotency.execute(key, Map.of("id", id, "action", action, "reason", reason), AccountAdministrationService.AccountStatus.class, work), request);
     }
 
+    //version的作用是：获取版本号
     private long version(String value) {
         try { return Long.parseLong(value.replace("\"", "")); }
-        catch (NumberFormatException error) { throw new ApiException(HttpStatus.BAD_REQUEST, "CONTENT_VERSION_REQUIRED", "请携带有效的内容版本后重试。"); }
+        catch (NumberFormatException error) { 
+            //如果版本号为空，则抛出异常
+            throw new ApiException(HttpStatus.BAD_REQUEST, "CONTENT_VERSION_REQUIRED", "请携带有效的内容版本后重试。"); 
+        }
     }
 
     private String accountId(Authentication auth) {
