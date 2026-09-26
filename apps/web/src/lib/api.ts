@@ -436,11 +436,13 @@ const failures: Record<number, string> = {
   429: '提交过于频繁，请稍后再试。',
 }
 
+// 学习·01：基础层统一路径、响应信封与异常；CSRF、幂等和版本头由上层组合，不是所有请求都有。
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response
   try {
     response = await fetch(base + path, {
       ...init,
+      // 学习·01：浏览器按 Cookie 策略携带会话，后端仍须检查登录、角色及资源归属。
       credentials: 'include',
       signal: init.signal ?? AbortSignal.timeout(15000),
       headers: { Accept: 'application/json', ...init.headers },
@@ -478,6 +480,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
 //CSRF（Cross-Site Request Forgery）：防止跨站请求伪造，保护用户的安全
 //CSRF的实现方式是：在请求头中添加CSRF token，然后在服务器端验证CSRF token
 //protectedRequest：保护请求，会先获取CSRF token，然后添加到请求头中
+// 学习·01：先取令牌再发送业务请求；CSRF 校验针对跨站伪造，不等同于业务授权。
 async function protectedRequest<T>(path: string, init: RequestInit) {
   //获取CSRF token
   const csrf = await request<CsrfPayload>('/auth/csrf')
@@ -485,6 +488,7 @@ async function protectedRequest<T>(path: string, init: RequestInit) {
   return request<T>(path, { ...init, headers: { ...init.headers, [csrf.headerName]: csrf.token } })
 }
 
+// 学习·01：同一逻辑提交的重试需复用原键；不传 key 时每次调用生成新键，后端负责去重。
 const jsonWrite = (body?: unknown, idempotencyKey?: string): RequestInit => ({
   method: 'POST',
   headers: {
@@ -505,6 +509,7 @@ function toHomepageWrite(placement: HomepagePlacement) {
 const write = <T>(path: string, body?: unknown, key?: string) =>
   protectedRequest<T>(path, jsonWrite(body, key))
 const itemPath = (role: string, id: string) => `/${role}/content-items/${encodeURIComponent(id)}`
+// 学习·01：If-Match 声明编辑所基于的版本；后端检测过期版本。此处每次调用仍生成新幂等键。
 const revise = (role: string, id: string, revision: number, draft: AdminDraft) => {
   const init = jsonWrite(draft)
   return protectedRequest<ManagedContent>(itemPath(role, id), {

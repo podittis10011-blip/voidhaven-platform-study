@@ -40,6 +40,7 @@ public class MediaService {
 
     @Transactional
     //
+    // 9.26补充(path:07)：校验图片字节后锁定内容，检查归属、草稿状态和配额；拥有媒体接口角色不等于可改任意内容。
     public Uploaded upload(String contentItemId, String altText, byte[] input, String actorId, String role, boolean administrator, String requestId) {
         if (accountLocks != null) accountLocks.requireActiveActor(actorId);
         if (altText == null || altText.isBlank() || altText.length() > 240) throw new ApiException(HttpStatus.BAD_REQUEST, "MEDIA_ALT_TEXT_REQUIRED", "请提供不超过 240 字的图片说明。 ");
@@ -57,6 +58,8 @@ public class MediaService {
         if ((total == null ? 0 : total) + image.bytes().length > MAX_TOTAL_BYTES_PER_REVISION) throw new ApiException(HttpStatus.CONFLICT, "MEDIA_LIMIT_EXCEEDED", "每篇内容的图片总量最多 20 MB。 ");
         String assetId = Ids.ulid();
         String key = "content/" + revisionId + "/" + assetId + "." + image.extension();
+        // 9.26补充(path:07)：对象存储不随数据库事务自动回滚；后续注册回调尝试删除失败事务已上传的对象。
+        // 删除是尽力补偿，失败被忽略，不能据此声称跨存储操作完全原子。
         storage.put(key, image.mediaType(), image.bytes());
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {

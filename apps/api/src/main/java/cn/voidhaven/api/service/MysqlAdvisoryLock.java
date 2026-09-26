@@ -15,6 +15,7 @@ public class MysqlAdvisoryLock {
         this.dataSource = dataSource;
     }
 
+    // 9.26补充(path:08)：命名锁属于 MySQL 连接，同一连接持有至 work 结束后释放；它不替代业务数据的事务/行锁。
     public boolean runExclusive(String name, Runnable work) {
         try (Connection connection = dataSource.getConnection()) {
             if (!acquire(connection, name)) return false;
@@ -29,6 +30,7 @@ public class MysqlAdvisoryLock {
         }
     }
 
+    // 9.26补充(path:08)：GET_LOCK 的等待参数为 0，抢不到立即跳过；只有连接同一 MySQL 的同名锁才互斥。
     private boolean acquire(Connection connection, String name) throws Exception {
         try (PreparedStatement statement = connection.prepareStatement("select get_lock(?, 0)")) {
             statement.setString(1, name);

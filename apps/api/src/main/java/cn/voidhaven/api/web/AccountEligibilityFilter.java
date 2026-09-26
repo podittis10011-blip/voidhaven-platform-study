@@ -42,6 +42,7 @@ public class AccountEligibilityFilter extends OncePerRequestFilter {
         //3. chain：过滤器链
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain) throws ServletException, IOException {
         //获取安全上下文
+        // 9.26补充(path:02)：已登录不代表账号永远有效；每次认证请求重新查账号，避免停用账号继续使用旧会话。
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         //如果安全上下文不为空，则检查账户是否已停用或资格不可用
         if (authentication != null && authentication.isAuthenticated() && !(authentication instanceof AnonymousAuthenticationToken)
@@ -49,6 +50,7 @@ public class AccountEligibilityFilter extends OncePerRequestFilter {
             //获取会话对象
             HttpSession session = request.getSession(false);
             //如果会话对象不为空，则无效化会话
+            // 9.26补充(path:02)：同时失效会话和清空本次安全上下文；此分支直接返回，不再进入业务处理。
             if (session != null) session.invalidate();
             //清除安全上下文
             SecurityContextHolder.clearContext();

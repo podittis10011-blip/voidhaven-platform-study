@@ -119,6 +119,7 @@ public class ContentService {
         //回显本次排序
         return new PublicPage(visible, nextCursor, applied.wire());
     }
+    // 学习·04：公开查询先走 Repository 的公开条件，再检查来源；不存在或不可见统一返回 404。
     public PublicContentDto publicDetail(ContentKind kind, String id) {
         return items.findPublicByIdAndKind(id, kind)
                 .filter(this::hasPublicSource)
@@ -168,6 +169,7 @@ public class ContentService {
     public List<ContentItem> publicPool(ContentKind kind, int size) {
         return items.findPublicByKind(kind, PageRequest.of(0, Math.max(1, Math.min(size, 50))));
     }
+    // 学习·04：公开 DTO 从 publishedRevision 取正文，不直接返回实体或正在编辑的 currentRevision。
     private PublicContentDto toPublic(ContentItem item, boolean includeMedia) {
         ContentRevision r = item.getPublishedRevision();
         try { return new PublicContentDto(item.getId(), item.getKind(), moduleKey(item), r.getSchemaVersion(), r.getTitle(), r.getSummary(), mapper.readTree(r.getBodyJson()), r.getLanguageCode(), languages.label(r.getLanguageCode()), r.getOriginalTitle(), r.getSourceName(), r.getSourceUrl(), r.getRightsBasis(), r.getAuthorDisplayName(), r.getReprintPermission(), r.getAdaptationPermission(), mapper.readTree(r.getMetadataJson() == null ? r.getDetailsJson() : r.getMetadataJson()), item.getVersion() == null ? 0 : item.getVersion(), includeMedia ? media.forPublishedRevision(r.getId()) : List.of(), item.getOperationalStatus(), includeMedia && actions != null ? actions.publicActions(item.getId()) : List.of(), includeMedia && verifications != null ? verifications.latestPublic(item.getId()) : null, item.getUpdatedAt()); }

@@ -34,6 +34,8 @@ public class IdempotencyReservationService {
     //3. 返回幂等性记录
         //4. 如果幂等性记录已存在，则查询幂等性记录
         //5. 如果幂等性记录不存在，则返回null
+    // 9.26校正(path:06)：只清除过期且状态为 102 的占位；新占位插入成功返回 null，重复键才返回已有记录。
+    // REQUIRES_NEW 独立提交占位，使其他事务能看到处理中状态；102 在此是表内状态标记。
     public Existing reserve(String key, String requestHash) {
         //删除幂等性记录
         jdbc.update("delete from idempotency_records where idempotency_key = ? and response_status = 102 and expires_at < current_timestamp(6)", key);
@@ -63,6 +65,7 @@ public class IdempotencyReservationService {
     //2. 返回幂等性记录
     //3. 如果幂等性记录已存在，则查询幂等性记录
     //4. 如果幂等性记录不存在，则返回null
+    // 9.26校正(path:06)：release 没有查询或返回记录；仅删除 key/hash 匹配且仍为 102 的占位，避免删除已完成结果。
     public void release(String key, String requestHash) {
         jdbc.update("delete from idempotency_records where idempotency_key = ? and request_hash = ? and response_status = 102", key, requestHash);
     }

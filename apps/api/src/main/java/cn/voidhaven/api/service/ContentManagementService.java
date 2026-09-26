@@ -183,6 +183,7 @@ public class ContentManagementService {
     //12. 记录内容创建审计，如果内容处于草稿状态，则记录内容创建审计。
     //13. 返回内容管理对象，如果内容处于草稿状态，则返回内容管理对象。
 
+    // 9.26校正(path:04)：create 创建一条新草稿，不是先要求已有内容为草稿；ownerProfileId 直接使用入参，无默认归属。
     public Managed create(Draft draft, String ownerProfileId, String actorId, String role, String requestId) {
         //在create方法中，requireActiveActor方法用于检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
         requireActiveActor(actorId);
@@ -262,6 +263,9 @@ public class ContentManagementService {
     //5. 检查送审内容是否至少需要一个有效行动入口后才能发布，如果不需要则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
     //6. 检查合作伙伴发布容量，如果容量不足则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
     //7. 返回内容管理对象，如果内容处于待审核状态，则返回内容管理对象。
+
+    // 9.26补充(path:05)：lockedOwned 在事务内锁定内容并检查归属，然后比较实体版本；事务本身不等于互斥。
+    // 下方 expectedVersion 是参数，版本不匹配返回 409（不是原学习草稿所写的 404）。
     public Managed revise(String id, Draft draft, String ownerProfileId, Long expectedVersion, String actorId, String role, String requestId) {
         //requireActiveActor方法用于检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
         requireActiveActor(actorId);
@@ -270,6 +274,8 @@ public class ContentManagementService {
         //如果找不到，则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
         ContentItem item = lockedOwned(id, ownerProfileId);
         //expectedVersion方法用于检查送审内容是否发生变化，如果发生变化则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
+
+        // 9.26补充(path:05)：即使已经拿到行锁，也须拒绝基于旧页面版本的写入；锁不会自动更新用户看到的内容。
         if (expectedVersion == null || !Objects.equals(item.getVersion(), expectedVersion)) throw new ApiException(HttpStatus.CONFLICT, "CONTENT_VERSION_CONFLICT", "内容已被其他操作更新，请刷新后再编辑。");
 
         //require方法用于检查送审内容是否处于待审核状态，如果不在待审核状态则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
@@ -282,6 +288,8 @@ public class ContentManagementService {
         ContentRevision previous = item.getCurrentRevision();
         //nextRevision方法用于获取下一个内容版本，如果内容处于待审核状态，则获取下一个内容版本。
         int nextRevision = previous.getRevisionNumber();
+
+        // 9.26补充(path:05)：已发布内容首次编辑创建新正文修订；可编辑草稿继续修改原修订，并非每次保存都新增一条。
         //createCandidate方法用于检查是否需要创建候选版本，如果需要则创建候选版本。
         boolean createCandidate = item.getWorkflowStatus() == WorkflowStatus.PUBLISHED;
         ContentRevision revision;
@@ -313,6 +321,7 @@ public class ContentManagementService {
             revisions.saveAndFlush(revision);
         }
         //beginCandidateRevision方法用于开始候选版本，如果内容处于待审核状态，则开始候选版本。
+        // 9.26补充(path:05)：保存后触碰实体并 flush，让并发版本随实体更新；正文 revisionNumber 由上方分支单独控制。
         item.beginCandidateRevision();
         //items方法用于保存内容，如果内容处于待审核状态，则保存内容。
         item = items.saveAndFlush(item);
@@ -334,6 +343,7 @@ public class ContentManagementService {
     //5. 检查送审内容是否至少需要一个有效行动入口后才能发布，如果不需要则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
     //6. 检查合作伙伴发布容量，如果容量不足则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
     @Transactional
+    // 9.26补充(path:04)：审核针对送审版本；通过审核与对外发布是不同动作，继续追踪 publish 的前置条件。
     public Managed decide(String id, String decision, String reason, Long expectedVersion, String actorId, String role, String requestId) {
         requireActiveActor(actorId);
 
@@ -400,6 +410,8 @@ public class ContentManagementService {
     //5. 检查送审内容是否至少需要一个有效行动入口后才能发布，如果不需要则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
     //6. 检查合作伙伴发布容量，如果容量不足则抛出ApiException异常(统一404状态码)，并返回指定的错误代码和错误信息。
     //7. 发布内容，如果内容处于批准状态，则发布内容。
+    
+    // 9.26补充(path:04)：发布先锁内容，再检查批准状态、媒体匹配、招募入口和合作方容量，最后改变公开引用并记审计。
     public Managed publish(String id, String actorId, String role, String requestId) {
         //在publish方法中，requireActiveActor方法用于检查操作人是否活跃，如果操作人不活跃则抛出ApiException异常(统一403状态码)，并返回指定的错误代码和错误信息。
         requireActiveActor(actorId);

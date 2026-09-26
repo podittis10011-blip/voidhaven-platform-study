@@ -29,6 +29,7 @@ public class IdempotencyService {
     //6. 如果操作执行成功，则更新幂等性记录
     //7. 如果操作执行失败，则释放幂等性记录
     //8. 返回操作结果
+    // 9.26补充(path:06)：相同键还须匹配请求哈希；已有记录走 restore，只有获得新占位才执行 action。
     public <T> T execute(String key, Object request, Class<T> responseType, Supplier<T> action) {
         //检查幂等性请求标识是否有效
         if (key == null || key.isBlank() || key.length() > 128) throw new ApiException(HttpStatus.BAD_REQUEST, "IDEMPOTENCY_KEY_REQUIRED", "请携带有效的幂等请求标识后重试。");
@@ -72,6 +73,7 @@ public class IdempotencyService {
     //6. 如果操作执行成功，则更新幂等性记录
     //7. 如果操作执行失败，则释放幂等性记录
     //8. 返回操作结果
+    // 9.26补充(path:06)：一次性敏感结果只返回当次调用，数据库保存不可重放标记；重复请求不会重新返回凭据。
     public <T> T executeSingleDelivery(String key, Object request, Supplier<T> action) {
         //检查幂等性请求标识是否有效
         if (key == null || key.isBlank() || key.length() > 128) throw new ApiException(HttpStatus.BAD_REQUEST, "IDEMPOTENCY_KEY_REQUIRED", "请携带有效的幂等请求标识后重试。");
@@ -105,6 +107,7 @@ public class IdempotencyService {
             throw error;
         }
     }
+    // 9.26补充(path:06)：分别处理异参复用、仍在处理和不可重放；只有通过这些检查才反序列化已存结果。
     private <T> T restore(IdempotencyReservationService.Existing existing, String hash, Class<T> type) {
         if (!Objects.equals(existing.requestHash(), hash)) throw new ApiException(HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_REUSED", "该请求标识已用于不同内容，请生成新的请求后重试。");
         if (existing.responseStatus() == 102) throw new ApiException(HttpStatus.CONFLICT, "REQUEST_IN_PROGRESS", "相同请求仍在处理，请稍后使用相同请求标识重试。");

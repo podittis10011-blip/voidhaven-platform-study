@@ -45,6 +45,7 @@ public class ContentLifecycleService {
     }
 
     @Scheduled(cron = "${voidhaven.lifecycle.cron:0 10 1 * * *}", zone = "Asia/Shanghai")
+    // 9.26补充(path:08)：处理到期关闭/归档，不是人工审核发布入口；生产注入数据库锁，避免多实例同时跑同名任务。
     public void scheduledRun() {
         if (advisoryLocks == null) {
             run(Instant.now());
@@ -53,6 +54,7 @@ public class ContentLifecycleService {
         advisoryLocks.runExclusive(TASK_LOCK, () -> run(Instant.now()));
     }
 
+    // 9.26补充(path:08)：生产路径逐条开启事务；单条失败不回滚其他内容。先枚举候选，再在 processOne 中加行锁复查。
     public void run(Instant now) {
         String requestId = Ids.ulid();
         for (ContentItem candidate : items.findTimedPublicItems()) {
@@ -79,6 +81,8 @@ public class ContentLifecycleService {
         }
     }
 
+    // 9.26补充(path:08)：使用已发布修订的类型详情表；精确时间严格早于 now 才到期，日期按上海时区次日判定。
+    // RESOURCE 不参与此到期判断；上方三天后自动归档分支排除了 RECRUITMENT。
     private boolean hasPassedDeadline(ContentItem item, Instant now) {
         if (item.getKind() == ContentKind.RESOURCE || item.getPublishedRevision() == null) return false;
         List<Map<String, Object>> rows = jdbc.queryForList(deadlineSql(item.getKind()), item.getPublishedRevision().getId());

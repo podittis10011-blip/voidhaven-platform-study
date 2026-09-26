@@ -6,6 +6,16 @@ import java.time.Instant;
 @Entity
 @Table(name = "content_items")
 
+// 9.26备注(path:03)：下方枚举清单保留作学习草稿，请以相邻 enum 文件为准。
+
+// 9.26校正(path:03)：内容类型 ContentKind 只有 COMPETITION、RESOURCE、RECRUITMENT；
+    // ARCHIVED/DELETED 属于 RecordState。
+
+// 9.26补充(path:03)：
+// 9.26补充(path:03)：WorkflowStatus 另有 CLOSED；
+// 9.26校正(path:03)：内容模块 key 是字符串模块标识，不是下方假设的 ContentModuleKey 枚举。
+    // moduleKey 是字符串模块标识，不是下方假设的 ContentModuleKey 枚举。
+
 //ContentItem类是内容管理的核心类，它包含了内容的各种属性，以及内容的各种操作。
 //ContentItem类的属性：
 //1. id：内容id
@@ -44,6 +54,7 @@ import java.time.Instant;
         //WorkflowStatus.ARCHIVED: 归档
         //WorkflowStatus.DELETED: 删除
         //WorkflowStatus.OTHER: 其他
+        //WorkflowStatus.CLOSED: 关闭
 
 //5. publicationStatus：内容发布状态
     //publicationStatus内容发布状态都包含哪些内容发布状态？
@@ -120,6 +131,8 @@ public class ContentItem {
     @Column(name = "operational_status") private String operationalStatus;
     @Enumerated(EnumType.STRING) private Visibility visibility;
     @Enumerated(EnumType.STRING) @Column(name = "record_state") private RecordState recordState;
+
+    // 9.26补充(path:03)：当前编辑与公开展示分别指向 currentRevision/publishedRevision；新草稿不必替换公开正文。
     @OneToOne(fetch = FetchType.LAZY) @JoinColumn(name = "current_revision_id") private ContentRevision currentRevision;
     @OneToOne(fetch = FetchType.LAZY) @JoinColumn(name = "published_revision_id") private ContentRevision publishedRevision;
     @Column(name = "owner_partner_profile_id") private String ownerPartnerProfileId;
@@ -127,6 +140,8 @@ public class ContentItem {
     @Column(name = "archived_at") private Instant archivedAt;
     @Column(name = "submitted_at") private Instant submittedAt;
     @Column(name = "updated_at") private Instant updatedAt;
+
+    // 9.26补充(path:03)：实体 version 用于并发控制，正文 revisionNumber 用于内容修订序列，二者不是同一计数。
     @Version private Long version;
     protected ContentItem() { }
     public ContentItem(String id, ContentKind kind, WorkflowStatus workflowStatus, Visibility visibility, RecordState recordState) {
@@ -152,6 +167,8 @@ public class ContentItem {
     public void setOwnerPartnerProfileId(String value) { ownerPartnerProfileId = value; }
     public void setModuleKey(String value) { moduleKey = value; }
     public void setOperationalStatus(String value) { operationalStatus = value; touch(); }
+
+    // 9.26补充(path:03)：开启候选仅调整编辑工作流，不清空 publishedRevision；发布时才切换公开引用。
     public void beginCandidateRevision() { workflowStatus = WorkflowStatus.DRAFT; submittedAt = null; touch(); }
     public void submit() { workflowStatus = WorkflowStatus.PENDING_REVIEW; submittedAt = Instant.now(); touch(); }
     public void approve() { workflowStatus = WorkflowStatus.APPROVED; touch(); }

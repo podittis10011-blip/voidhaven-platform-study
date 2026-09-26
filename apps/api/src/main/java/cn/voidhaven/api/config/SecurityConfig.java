@@ -19,6 +19,8 @@ import org.springframework.security.web.context.SecurityContextHolderFilter;
 import cn.voidhaven.api.web.AccountEligibilityFilter;
 
 
+// 9.26备注(path:02)：下方为保留的学习草稿。Argon2 是密码哈希，不是可逆加密；
+// @EnableMethodSecurity 默认开启 pre/post 支持，@Secured 需显式启用 securedEnabled。
 // SecurityConfig类出现的注释：
 // 1. @Configuration：标记该类为Spring的配置类，用于定义Spring Bean。
 // 2. @EnableWebSecurity：启用Spring Security的Web安全功能。
@@ -57,6 +59,8 @@ public class SecurityConfig {
     // 定义一个SecurityFilterChain Bean，用于过滤请求。
     @Bean SecurityFilterChain filterChain(HttpSecurity http, DaoAuthenticationProvider provider, AccountEligibilityFilter accountEligibilityFilter) throws Exception {
         // 定义一个CookieCsrfTokenRepository Bean，用于CSRF保护。
+
+        // 9.26校正（path:02）：这里配置的是 CSRF Cookie，不是 Session Cookie；不能将二者的 HttpOnly 设置混为一谈。
         CookieCsrfTokenRepository csrf = CookieCsrfTokenRepository.withHttpOnlyFalse(); csrf.setCookieCustomizer(cookie -> cookie.sameSite("Strict").secure(cookieSecure));
 
         //以下代码是Spring Security的配置，用于配置HTTP安全。
@@ -68,12 +72,15 @@ public class SecurityConfig {
         // 定义一个requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")，用于允许某些请求。
         // 定义一个requestMatchers("/api/v1/partner/**", "/api/v1/media/**").hasAnyRole("PARTNER", "ADMIN", "SUPER_ADMIN")，用于允许某些请求。
         // 定义一个anyRequest().authenticated()，用于允许所有请求。
+
+        // 9.26校正（path:02）：
+        // authenticated() 要求已认证，不是允许所有请求；permitAll 与 CSRF 豁免是独立规则。
+        // 路径角色校验之后，Service 仍须校验内容归属。下方两次 build() 是学习副本已有的待核查问题。
         http.authenticationProvider(provider).csrf(config -> config.csrfTokenRepository(csrf).ignoringRequestMatchers("/api/v1/public/**", "/api/v1/auth/session", "/api/v1/auth/activation/consume", "/api/v1/auth/password-reset/consume"))
             .authorizeHttpRequests(auth -> auth.requestMatchers("/healthz", "/actuator/health/**", "/api/v1/public/**", "/api/v1/auth/session", "/api/v1/auth/csrf", "/api/v1/auth/activation/consume", "/api/v1/auth/password-reset/consume").permitAll().requestMatchers("/api/v1/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN").requestMatchers("/api/v1/partner/**", "/api/v1/media/**").hasAnyRole("PARTNER", "ADMIN", "SUPER_ADMIN").anyRequest().authenticated())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)).exceptionHandling(errors -> errors.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))).httpBasic(httpBasic -> httpBasic.disable())
             .addFilterAfter(accountEligibilityFilter, SecurityContextHolderFilter.class).build();
         // 返回一个HttpSecurity Bean。
         return http.build();
-   
     }
 }

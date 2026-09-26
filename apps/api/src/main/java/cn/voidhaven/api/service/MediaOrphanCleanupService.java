@@ -26,6 +26,7 @@ public class MediaOrphanCleanupService {
     }
 
     @Transactional
+    // 9.26补充(path:07)：只扫描数据库中已登记且无引用/有效预留的媒体；标记待删并入队，不是扫描整个存储桶。
     public int queueUnattachedAssets() {
         List<Orphan> orphans = jdbc.query(
                 "select ma.id, ma.storage_key from media_assets ma where ma.lifecycle_state = 'ACTIVE' and ma.storage_key not like 'community/%' and not exists (select 1 from revision_media rm where rm.media_asset_id = ma.id) and not exists (select 1 from community_entries ce where ce.media_asset_id = ma.id) and not exists (select 1 from content_action_entries ca where ca.media_asset_id = ma.id) and not exists (select 1 from content_action_media_reservations r where r.media_asset_id = ma.id and r.consumed_at is null and r.expires_at > current_timestamp(6)) for update",
@@ -40,6 +41,8 @@ public class MediaOrphanCleanupService {
         return queued;
     }
 
+    // 9.26补充(path:07)：每轮用独立 claimId 领取最多 100 个任务，租约 10 分钟；失败延后 5 分钟再试。
+    // 租约到期可重领，因此应按可重试删除理解，不能当作严格只执行一次。
     public int processDueDeletions() {
         String claimId = instanceId + ":" + Ids.ulid();
         jdbc.update("""
