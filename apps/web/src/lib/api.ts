@@ -436,13 +436,29 @@ const failures: Record<number, string> = {
   429: '提交过于频繁，请稍后再试。',
 }
 
-// 学习·01：基础层统一路径、响应信封与异常；CSRF、幂等和版本头由上层组合，不是所有请求都有。
+
+
+
+// 9.26补充(path:01)：基础层统一路径、响应信封与异常；CSRF、幂等和版本头由上层组合，不是所有请求都有。
+//request函数中:实际发送请求，处理响应的位置在哪里？
+  //在request函数中，实际发送请求，处理响应的位置在try...catch...中
+    //try...catch...中，实际发送请求，处理响应的位置在fetch函数中
+    //fetch函数是浏览器内置的函数，用于发送HTTP请求
+    //fetch函数会返回一个Promise对象
+    //Promise对象会返回一个Response对象
+    //Response对象会返回一个JSON对象
+    //JSON对象会返回一个T对象
+    //T对象会返回一个Promise对象
+    //Promise对象会返回一个T对象
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response
+
+
   try {
+    //try...catch...中，实际发送请求，处理响应的位置在fetch函数中
     response = await fetch(base + path, {
       ...init,
-      // 学习·01：浏览器按 Cookie 策略携带会话，后端仍须检查登录、角色及资源归属。
+      // 9.26补充(path:01)：浏览器按 Cookie 策略携带会话，后端仍须检查登录、角色及资源归属。
       credentials: 'include',
       signal: init.signal ?? AbortSignal.timeout(15000),
       headers: { Accept: 'application/json', ...init.headers },
@@ -456,11 +472,18 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
         : '暂时无法连接内容服务，请确认本地服务已启动后重试。',
     )
   }
+  
+  // 如果响应状态码为204，则返回undefined
   if (response.status === 204) return undefined as T
+
   const payload = (await response.json().catch(() => null)) as Envelope<T> | ErrorPayload | null
+  // 如果响应状态码不为200，则抛出ApiFailure异常
   if (!response.ok) {
+    // 将payload转换为ErrorPayload类型
     const failure = payload as ErrorPayload | null
+    // 获取Retry-After头
     const retry = response.headers.get('Retry-After')
+    // 抛出ApiFailure异常
     throw new ApiFailure(
       failure?.code ?? 'REQUEST_FAILED',
       failure?.message ?? failures[response.status] ?? '请求未完成，请稍后重试。',
@@ -471,16 +494,26 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
       retry && /^\d+$/.test(retry) ? Number(retry) : undefined,
     )
   }
+  // 如果payload为空，或者payload的data属性不存在，则抛出ApiFailure异常
   if (!payload || !Object.prototype.hasOwnProperty.call(payload, 'data'))
+    // 抛出ApiFailure异常
     throw new ApiFailure('INVALID_RESPONSE', '内容服务返回了非预期页面，请检查本地代理地址。')
+  // 返回payload的data属性
   return (payload as Envelope<T>).data
 }
 
 //CSRF的定义概念及作用：
 //CSRF（Cross-Site Request Forgery）：防止跨站请求伪造，保护用户的安全
 //CSRF的实现方式是：在请求头中添加CSRF token，然后在服务器端验证CSRF token
+
 //protectedRequest：保护请求，会先获取CSRF token，然后添加到请求头中
-// 学习·01：先取令牌再发送业务请求；CSRF 校验针对跨站伪造，不等同于业务授权。
+// 9.26补充(path:01)：先取令牌再发送业务请求；CSRF 校验针对跨站伪造，不等同于业务授权。
+
+//9.26补充(path:01)：protectedRequest为什么先请求/auth/csrf?
+  //因为protectedRequest是保护请求，会先获取CSRF token，然后添加到请求头中
+  //所以需要先请求/auth/csrf，获取CSRF token
+  //然后添加到请求头中
+  //所以需要先请求/auth/csrf，获取CSRF token
 async function protectedRequest<T>(path: string, init: RequestInit) {
   //获取CSRF token
   const csrf = await request<CsrfPayload>('/auth/csrf')
@@ -488,7 +521,31 @@ async function protectedRequest<T>(path: string, init: RequestInit) {
   return request<T>(path, { ...init, headers: { ...init.headers, [csrf.headerName]: csrf.token } })
 }
 
-// 学习·01：同一逻辑提交的重试需复用原键；不传 key 时每次调用生成新键，后端负责去重。
+// 9.26补充(path:01)：同一逻辑提交的重试需复用原键；不传 key 时每次调用生成新键，后端负责去重。
+
+// jsonWrite函数的作用：
+// 1. 初始化请求头
+// 2. 添加Content-Type头
+// 3. 添加Idempotency-Key头
+// 4. 添加body
+// 5. 返回RequestInit对象
+
+// jsonWrite：什么时候生成新的幂等键？
+  // 不传 key 时每次调用生成新键，后端负责去重。所以，jsonWrite函数会在不传 key 时每次调用生成新的幂等键。  
+
+//这段代码用了哪种写法？：箭头函数
+  //箭头函数是ES6中引入的一种新的函数定义方式，它是一种匿名函数，通常用于回调函数、事件处理函数等。
+  //不用箭头函数的写法：
+    // function jsonWrite(body?: unknown, idempotencyKey?: string): RequestInit {
+    //   return {
+    //     method: 'POST',
+    //     headers: {
+    //       'Content-Type': 'application/json',
+    //       'Idempotency-Key': idempotencyKey ?? createIdempotencyKey(),
+    //     },
+    //     body: body === undefined ? undefined : JSON.stringify(body),
+    //   }
+    // }
 const jsonWrite = (body?: unknown, idempotencyKey?: string): RequestInit => ({
   method: 'POST',
   headers: {
@@ -509,7 +566,28 @@ function toHomepageWrite(placement: HomepagePlacement) {
 const write = <T>(path: string, body?: unknown, key?: string) =>
   protectedRequest<T>(path, jsonWrite(body, key))
 const itemPath = (role: string, id: string) => `/${role}/content-items/${encodeURIComponent(id)}`
-// 学习·01：If-Match 声明编辑所基于的版本；后端检测过期版本。此处每次调用仍生成新幂等键。
+
+// 9.26补充(path:01):
+//revise函数的作用：
+//1. 初始化请求头
+//2. 添加If-Match头
+//3. 返回protectedRequest的返回值
+
+// If-Match 声明编辑所基于的版本；后端检测过期版本。此处每次调用仍生成新幂等键。
+
+// 前端基础知识补充：
+// // "const revise"中的const是定义一个常量，用于存储修订的请求头。revise是函数名，用于存储修订的请求头。
+// const revise = (role: string, id: string, revision: number, draft: AdminDraft) => {
+// const init = jsonWrite(draft)：初始化请求头
+// ...init：将init中的所有属性展开并合并到新的对象中
+// method: 'PATCH'：请求方法为PATCH
+// headers: { ...init.headers, 'If-Match': String(revision) }：将init中的headers属性展开并合并到新的对象中，同时添加If-Match头
+
+// return protectedRequest<ManagedContent>(itemPath(role, id), { ...init, method: 'PATCH', headers: { ...init.headers, 'If-Match': String(revision) } })：返回protectedRequest的返回值
+// protectedRequest：保护请求，会先获取CSRF token，然后添加到请求头中
+// jsonWrite：将body转换为JSON字符串，并添加幂等键
+// createIdempotencyKey：生成幂等键
+// }
 const revise = (role: string, id: string, revision: number, draft: AdminDraft) => {
   const init = jsonWrite(draft)
   return protectedRequest<ManagedContent>(itemPath(role, id), {
@@ -518,6 +596,7 @@ const revise = (role: string, id: string, revision: number, draft: AdminDraft) =
     headers: { ...init.headers, 'If-Match': String(revision) },
   })
 }
+
 function queryString(options: ManagementQuery = {}) {
   const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 20) })
   if (options.cursor) params.set('cursor', options.cursor)
