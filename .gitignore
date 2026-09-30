@@ -27,8 +27,24 @@ replay_pid*.log
 .idea/
 .vscode/
 *.iml
+.DS_Store
 Thumbs.db
 Desktop.ini
 
 # Versioned environment templates under infra/env
 !infra/env/.env.*.example
+
+# Lab scratch, local review caches and extra language caches
+build/
+.gradle/
+.venv/
+__pycache__/
+.scratch/
+tmp/
+*.pem
+*.key
+*.p12
+*.pfx
+/.review-tmp/
+/output/
+/work/

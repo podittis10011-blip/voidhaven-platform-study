@@ -1,0 +1,44 @@
+flowchart TD
+    A["HTTP GET /api/v1/public/resources<br/>或 /content?module="] --> B["PublicContentController.resources()<br/>只做参数绑定"]
+    B --> C["ContentService.listCatalog(kind, moduleKey, size, cursor, query, sort, filterKey, filterValue, status)"]
+
+    C --> D1["D5-1 pageSize = clamp(size, 1, 50)<br/>实测 0→1、999→50"]
+    D1 --> D2["D5-2/3 moduleKey 为 null ? kind : module.legacyKind()"]
+    D2 --> D4{"D5-4 filterKey 与 filterValue 是否成对？"}
+    D4 -->|否| E400A["400 CONTENT_FILTER_INCOMPLETE"]
+    D4 -->|是| D5{"status 在白名单内？<br/>OPEN/PAUSED/FILLED/EXPIRED/CANCELLED"}
+    D5 -->|否| E400B["400 CATALOG_STATUS_INVALID"]
+    D5 -->|是| D6["D5-5 CatalogSort.resolve(用户显式 > 后台默认)"]
+    D6 -->|RESOURCE + 后台配 DEADLINE| DG["静默降级 UPDATED<br/>实测 sort=updated"]
+    D6 -->|RESOURCE + 用户显式 deadline| E400C["400 CATALOG_SORT_UNSUPPORTED"]
+    D6 --> D7["D5-7 CatalogCursor.decode(cursor, applied)"]
+    D7 -->|空| D8
+    D7 -->|sort 不一致| E400D["400 CATALOG_CURSOR_MISMATCH<br/>实测 queryCount=0，一次 SQL 都没发"]
+    D7 -->|格式坏 / 段数≠3| E400E["400 CATALOG_CURSOR_INVALID"]
+    D7 -->|26 位 ULID + DEFAULT| LEG["legacy=true → 谓词退化为 c.id < ?"]
+    D8["D5-8 CatalogQuery.selectIds(..., limit = pageSize+1)<br/>实测 2→3、50→51"] --> D9["D5-9 jdbc.query 只取 id + sort_key"]
+    LEG --> D8
+    D9 --> D10{"D5-10 hasNext = ranked.size() > pageSize"}
+    D10 -->|"3 > 2 → true"| D11["D5-11 page = subList(0, pageSize)<br/>多出的第 3 条丢弃"]
+    D10 -->|"2 = 2 → false"| D12["page = ranked，全部保留"]
+    D11 --> D13
+    D12 --> D13
+    D13["D5-12 inOrder(ids)<br/>D5-13 替身按 id desc 返回 C,B,A<br/>D5-14 按 ids 还原成 A,B"] --> D14["filter(hasPublicSource)<br/>D5-19 外链放行 / D5-20 模块允许原创<br/>D5-21 moduleKey 为空回退 legacy 名"]
+    D14 -->|"用例 1：A、B 都通过"| D15["map(toPublic(item,false))<br/>列表不加载媒体"]
+    D14 -->|"用例 2：B 来源非法"| D16["visible = [A]<br/>本页变短，但游标不变"]
+    D15 --> D17{"D5-15 hasNext && page 非空？"}
+    D16 --> D17
+    D17 -->|是| D18["D5-16 nextCursor 取原始页末条<br/>实测 key=2 / id=ITEM_B"]
+    D17 -->|否| D19["nextCursor = null<br/>实测恰好一页时"]
+    D18 --> D20["D5-17 PublicPage(items, nextCursor, sort)"]
+    D19 --> D20
+    D20 --> Z["Controller.ok() 包 ApiResponse + requestId"]
+
+    style E400A fill:#fee,stroke:#c00
+    style E400B fill:#fee,stroke:#c00
+    style E400C fill:#fee,stroke:#c00
+    style E400D fill:#fee,stroke:#c00
+    style E400E fill:#fee,stroke:#c00
+    style DG fill:#ffd,stroke:#aa0
+    style D16 fill:#ffd,stroke:#aa0
+    style LEG fill:#ffd,stroke:#aa0

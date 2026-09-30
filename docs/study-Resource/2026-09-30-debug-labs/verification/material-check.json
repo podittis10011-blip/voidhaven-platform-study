@@ -1,0 +1,10 @@
+{
+  "checked_at": "2026-09-30",
+  "links_checked": 169,
+  "broken_links": 0,
+  "stations": 29,
+  "driver_methods": "PASS（29 站全部 drivers 的类与方法都能在测试源码或包内探针中找到）",
+  "source_anchors": "PASS（88 个锚点全部命中产品源码行，且没有锚点只匹配到注释行）",
+  "probe_hashes": "PASS（6 个探针 SHA-256 与 probe-manifest.json 一致）",
+  "json_valid": "PASS（station-manifest.json / probe-manifest.json / baseline-classes.json / experiments.json / verification 下全部 JSON 可解析）"
+}

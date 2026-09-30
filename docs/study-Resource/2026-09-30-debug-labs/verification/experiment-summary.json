@@ -1,0 +1,122 @@
+[
+  {
+    "id": "vh02-E1",
+    "driver": "ContentManagementServiceReviseProbeTest#revising_a_published_item_creates_a_candidate_and_keeps_the_published_pointer",
+    "expected": "ERROR: CONTENT_NOT_EDITABLE；createCandidate 未执行",
+    "actual": "ERROR",
+    "restored": true,
+    "environment": "此前隔离副本"
+  },
+  {
+    "id": "vh03-E1",
+    "driver": "AccountEligibilityFilterTest#invalidates_an_existing_session_when_the_account_is_no_longer_active",
+    "expected": "PASS: 401、会话失效、上下文清空仍成立",
+    "actual": "PASS",
+    "restored": true,
+    "environment": "此前隔离副本"
+  },
+  {
+    "id": "vh04-E1",
+    "driver": "IdempotencyServiceTest#rejects_a_matching_request_while_the_first_request_owns_the_key",
+    "expected": "FAILURE: 实际 actions=0",
+    "actual": "FAILURE",
+    "restored": true,
+    "environment": "此前隔离副本"
+  },
+  {
+    "id": "vh05-E1",
+    "driver": "MediaValidatorTest#decodes_real_png_pixels_and_reencodes_without_the_input_metadata",
+    "expected": "FAILURE: 原预期 image/png，实际 image/jpeg",
+    "actual": "FAILURE",
+    "restored": true,
+    "environment": "此前隔离副本"
+  },
+  {
+    "id": "vh06-E1",
+    "driver": "PublicWriteInterceptorDebugProbeTest#post_submission_uses_write_bucket",
+    "expected": "FAILURE: 原 write 调用验证未发生",
+    "actual": "FAILURE",
+    "restored": true,
+    "environment": "此前隔离副本"
+  },
+  {
+    "id": "vh02-E2",
+    "driver": "ContentManagementServiceReviseProbeTest#revise_rejects_a_stale_expected_version",
+    "expected": "PASS: CONTENT_VERSION_CONFLICT 仍被正确捕获",
+    "actual": "PASS",
+    "restored": true,
+    "environment": "此前隔离副本"
+  },
+  {
+    "id": "vh03-E2",
+    "driver": "PasswordEncoderDebugProbeTest#real_encoder_uses_random_salt_and_checks_passwords",
+    "expected": "FAILURE: 预期 false，实际 true",
+    "actual": "FAILURE",
+    "restored": true,
+    "environment": "此前隔离副本"
+  },
+  {
+    "id": "vh04-E2",
+    "driver": "IdempotencyServiceTest#releases_the_reservation_when_the_business_action_fails",
+    "expected": "FAILURE: 原断言期待 IllegalStateException，实际 IllegalArgumentException",
+    "actual": "FAILURE",
+    "restored": true,
+    "environment": "此前隔离副本"
+  },
+  {
+    "id": "vh05-E2",
+    "driver": "MediaRollbackDebugProbeTest#rollback_callback_deletes_uploaded_object",
+    "expected": "FAILURE: 预期 delete 1 次，实际 0",
+    "actual": "FAILURE",
+    "restored": true,
+    "environment": "此前隔离副本"
+  },
+  {
+    "id": "vh06-E2",
+    "driver": "PublicCaseDebugProbeTest#creates_receipt_stores_only_hash_and_queries_it",
+    "expected": "ERROR: CASE_QUERY_INVALID",
+    "actual": "ERROR",
+    "restored": true,
+    "environment": "此前隔离副本"
+  },
+  {
+    "id": "vh02-E3",
+    "driver": "ContentRevisionCandidateServiceTest#clone_uses_the_highest_existing_revision_number",
+    "expected": "FAILURE: 预期 6，实际 10",
+    "actual": "FAILURE",
+    "restored": true,
+    "environment": "此前隔离副本"
+  },
+  {
+    "id": "vh03-E3",
+    "driver": "ProductionConfigurationValidatorTest#acceptsExplicitSecureProductionConfiguration",
+    "expected": "FAILURE: 原无异常断言失败，原因 Production session cookies must be Secure",
+    "actual": "FAILURE",
+    "restored": true,
+    "environment": "此前隔离副本"
+  },
+  {
+    "id": "vh04-E3",
+    "driver": "MediaOrphanCleanupServiceTest#queues_before_deleting_from_private_storage",
+    "expected": "FAILURE: removed 预期 1，实际 0",
+    "actual": "FAILURE",
+    "restored": true,
+    "environment": "此前隔离副本"
+  },
+  {
+    "id": "vh05-E3",
+    "driver": "MarkdownDocumentServiceTest#builds_a_safe_document_with_inline_media",
+    "expected": "FAILURE: 抽取的新 ID 与旧断言不同",
+    "actual": "FAILURE",
+    "restored": true,
+    "environment": "此前隔离副本"
+  },
+  {
+    "id": "vh06-E3",
+    "driver": "PublicContactRevealDebugProbeTest#reveals_with_matching_aad_and_records_minimal_audit",
+    "expected": "ERROR: PRIVATE_VALUE_DECRYPTION_FAILED",
+    "actual": "ERROR",
+    "restored": true,
+    "environment": "此前隔离副本"
+  }
+]

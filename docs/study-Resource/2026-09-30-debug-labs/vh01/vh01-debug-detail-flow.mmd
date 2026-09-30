@@ -1,0 +1,50 @@
+flowchart TD
+    subgraph D9["D9 HTTP 入口与信封（探针 B：PublicContentControllerDebugProbeTest）"]
+        H1["GET /api/v1/public/resources"] --> H2["PublicContentController.resources()"]
+        H2 --> H3{"@RequestParam 绑定"}
+        H3 -->|"pageSize 缺省"| H4["默认 20 → 实测 verify(..., eq(20), ...) 通过"]
+        H3 -->|"module 缺失（/content）"| H5["500 TEMPORARILY_UNAVAILABLE<br/>实测：走到通用 @ExceptionHandler(Exception.class)"]
+        H4 --> H6["ApiResponse(data, requestId)"]
+        H6 --> H7{"RequestIdFilter 是否挂上？"}
+        H7 -->|"未挂：requestId = null"| H8["响应体 requestId: null"]
+        H7 -->|"挂上：requestId = 26 位 ULID"| H9["响应头 X-Request-Id + 信封里 ULID"]
+        H6 --> H10{"Service 抛什么？"}
+        H10 -->|"ApiException"| H11["400/404/409 + ApiError(code,message,requestId,fieldErrors,retryable)"]
+        H10 -->|"其它 Exception"| H12["500 TEMPORARILY_UNAVAILABLE + retryable=true"]
+    end
+
+    subgraph D7["D7 详情与 404（探针 A 用例 8～10）"]
+        P1["GET /content/{id} 或 /resources/{id}"] --> P2["ContentService.publicDetail(kind, id)"]
+        P2 --> P3["items.findPublicByIdAndKind(id, kind)<br/>仓储已过滤 publishedRevision / PUBLIC / ACTIVE"]
+        P3 -->|命中| P4{"hasPublicSource(item)？"}
+        P3 -->|未命中| P8["Optional.empty()"]
+        P4 -->|"外链不合规 或 模块不允许原创"| P8
+        P4 -->|通过| P5["toPublic(item, includeMedia = true)"]
+        P5 --> P6["加载媒体 / 公开行动入口 / 最新核验<br/>实测：media 只被查询一次"]
+        P8 --> P9["抛 404 CONTENT_NOT_FOUND<br/>与不存在的条目同一个错误码"]
+        P9 --> P10["详情的 404 与列表丢弃用同一条来源规则"]
+    end
+
+    subgraph D8["D8 关联与 sitemap（探针 A 用例 11～12）"]
+        R1["GET /content/{id}/related"] --> R2["ContentService.related(id)"]
+        R2 --> R3["先 publicDetail(id) 确认源内容可公开"]
+        R3 --> R4["关系表 queryForList：双向相关 id"]
+        R4 --> R5["并上 details 里的 relatedCompetitionIds"]
+        R5 --> R6["去掉自己 → limit 24 → inOrder → 来源过滤"]
+        R6 --> R7["实测 [B, C, A]：去重且保持插入顺序，nextCursor 恒为 null"]
+        S1["publicSitemapEntries()"] --> S2["按 kind 遍历 findPublicByKind"]
+        S2 --> S3{"hasPublicSource(item)？"}
+        S3 -->|否| S4["不进 sitemap<br/>实测非法来源被排除"]
+        S3 -->|是| S5["与详情共用同一条谓词，避免爬虫拿到会 404 的 URL"]
+    end
+
+    H1 -.-> P1
+    H1 -.-> R1
+
+    style H5 fill:#fee,stroke:#c00
+    style H11 fill:#fee,stroke:#c00
+    style H12 fill:#fee,stroke:#c00
+    style P9 fill:#fee,stroke:#c00
+    style P10 fill:#ffd,stroke:#aa0
+    style S5 fill:#ffd,stroke:#aa0
+    style H8 fill:#ffd,stroke:#aa0

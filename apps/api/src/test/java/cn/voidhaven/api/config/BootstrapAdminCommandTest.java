@@ -25,14 +25,67 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+
+//该测试方法属于：单元测试
+//单元测试的基础知识补充：
+//单元测试是软件测试的一种，它是一种验证代码正确性的测试方法。
+//单元测试的目的是验证代码的正确性，确保代码在各种情况下都能正常工作。
+//单元测试的优点是：
+//1. 可以快速发现代码中的问题
+//2. 可以提高代码的质量
+//3. 可以提高代码的可维护性
+//4. 可以提高代码的可读性
+//5. 可以提高代码的可测试性
+
+// 单元测试的分类：
+//1. 单元测试：测试单个类或方法的正确性
+//2. 集成测试：测试多个类或方法的正确性
+//3. 系统测试：测试整个系统的正确性
+//4. 验收测试：测试整个系统的正确性
+//5. 性能测试：测试整个系统的性能
+//6. 安全测试：测试整个系统的安全性
+//7. 兼容性测试：测试整个系统的兼容性
+//8. 可用性测试：测试整个系统的可用性
+
+// @Test：测试方法的注解，表示该方法是一个测试方法
+
+// 单元测试的具体如何用？
+    //1. 创建一个测试类
+    //2. 创建一个测试方法
+    //3. 使用@Test注解标记测试方法
+    //4. 使用@ExtendWith注解标记测试类
+    //5. 使用@ExtendWith注解标记测试方法
+    //然后呢？测试方法的代码怎么写？
+    //1. 使用@Test注解标记测试方法
+    //2. 使用@ExtendWith注解标记测试类
+
+
+
 @ExtendWith(OutputCaptureExtension.class)
+//BootstrapAdminCommandTest：测试BootstrapAdminCommand类的功能
 class BootstrapAdminCommandTest {
+
+
     @Test
     void requiresExplicitBootstrapAdminProfile() {
         Profile profile = BootstrapAdminCommand.class.getAnnotation(Profile.class);
         assertNotNull(profile);
         assertArrayEquals(new String[]{"bootstrap-admin"}, profile.value());
     }
+
+//JUnit的测试结果输出格式，解释每个字段的含义：
+//%TESTC  1 v2：表示测试用例的数量
+//%TSTTREE2,cn.voidhaven.api.config.BootstrapAdminCommandTest,true,1,false,1,BootstrapAdminCommandTest,,[engine:junit-jupiter]/[class:cn.voidhaven.api.config.BootstrapAdminCommandTest]：表示测试用例的树形结构
+//%TSTTREE3,acceptsProductionAndTestServerButRejectsLocal(cn.voidhaven.api.config.BootstrapAdminCommandTest),false,1,false,2,acceptsProductionAndTestServerButRejectsLocal(),,[engine:junit-jupiter]/[class:cn.voidhaven.api.config.BootstrapAdminCommandTest]/[method:acceptsProductionAndTestServerButRejectsLocal()]：表示测试用例的树形结构
+//%TESTS  3,acceptsProductionAndTestServerButRejectsLocal(cn.voidhaven.api.config.BootstrapAdminCommandTest)：表示测试用例的数量
+//%RUNTIME151：表示测试用例的运行时间
+
+//根据该测试结果输出能得到什么？
+
+//那测试用例运行是否成功从哪里看出来？
+//从%TESTS  3,acceptsProductionAndTestServerButRejectsLocal(cn.voidhaven.api.config.BootstrapAdminCommandTest)：表示测试用例的数量
+//如果%TESTS  3,acceptsProductionAndTestServerButRejectsLocal(cn.voidhaven.api.config.BootstrapAdminCommandTest)为0，则表示测试用例运行失败
+//如果%TESTS  3,acceptsProductionAndTestServerButRejectsLocal(cn.voidhaven.api.config.BootstrapAdminCommandTest)为1，则表示测试用例运行成功
 
     @Test
     void acceptsProductionAndTestServerButRejectsLocal() {

@@ -1,0 +1,38 @@
+[
+  {
+    "layer": "vh02",
+    "file": "vh02/probe/ContentManagementServiceReviseProbeTest.java",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/service/ContentManagementServiceReviseProbeTest.java",
+    "sha256": "5c9a6eb72c6f4990331413098afaee7ee9891a9e29f4743a1668efe22caf239c"
+  },
+  {
+    "layer": "vh03",
+    "file": "vh03/probe/PasswordEncoderDebugProbeTest.java",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/config/PasswordEncoderDebugProbeTest.java",
+    "sha256": "6be87edd4b4b9edb0417c47e6c44b112235dba62e405831047f1880c89a8f7f9"
+  },
+  {
+    "layer": "vh05",
+    "file": "vh05/probe/MediaRollbackDebugProbeTest.java",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/service/MediaRollbackDebugProbeTest.java",
+    "sha256": "a626a3750d606fcd216515eaf6384e21a861bb876f0c2682434756db938a4b6c"
+  },
+  {
+    "layer": "vh06",
+    "file": "vh06/probe/PublicCaseDebugProbeTest.java",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/service/PublicCaseDebugProbeTest.java",
+    "sha256": "3c154cfe837cdaba0971fc03ad01685c9b96e0c21b7d29e6bee6bc4a117b2be7"
+  },
+  {
+    "layer": "vh06",
+    "file": "vh06/probe/PublicContactRevealDebugProbeTest.java",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/service/PublicContactRevealDebugProbeTest.java",
+    "sha256": "5357da9ad1b9fe1c7109f9ca4d67c52a951135f342f759f64c19c365604ef82e"
+  },
+  {
+    "layer": "vh06",
+    "file": "vh06/probe/PublicWriteInterceptorDebugProbeTest.java",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/web/PublicWriteInterceptorDebugProbeTest.java",
+    "sha256": "9077b59abbdbdada7ac9fe3ebf5c95846cc3b772ee560ae8ba0ed3d16ad1a4bb"
+  }
+]

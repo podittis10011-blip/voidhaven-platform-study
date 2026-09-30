@@ -436,23 +436,19 @@ const failures: Record<number, string> = {
   429: '提交过于频繁，请稍后再试。',
 }
 
-
-
-
 // 9.26补充(path:01)：基础层统一路径、响应信封与异常；CSRF、幂等和版本头由上层组合，不是所有请求都有。
 //request函数中:实际发送请求，处理响应的位置在哪里？
-  //在request函数中，实际发送请求，处理响应的位置在try...catch...中
-    //try...catch...中，实际发送请求，处理响应的位置在fetch函数中
-    //fetch函数是浏览器内置的函数，用于发送HTTP请求
-    //fetch函数会返回一个Promise对象
-    //Promise对象会返回一个Response对象
-    //Response对象会返回一个JSON对象
-    //JSON对象会返回一个T对象
-    //T对象会返回一个Promise对象
-    //Promise对象会返回一个T对象
+//在request函数中，实际发送请求，处理响应的位置在try...catch...中
+//try...catch...中，实际发送请求，处理响应的位置在fetch函数中
+//fetch函数是浏览器内置的函数，用于发送HTTP请求
+//fetch函数会返回一个Promise对象
+//Promise对象会返回一个Response对象
+//Response对象会返回一个JSON对象
+//JSON对象会返回一个T对象
+//T对象会返回一个Promise对象
+//Promise对象会返回一个T对象
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   let response: Response
-
 
   try {
     //try...catch...中，实际发送请求，处理响应的位置在fetch函数中
@@ -472,7 +468,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
         : '暂时无法连接内容服务，请确认本地服务已启动后重试。',
     )
   }
-  
+
   // 如果响应状态码为204，则返回undefined
   if (response.status === 204) return undefined as T
 
@@ -510,10 +506,10 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
 // 9.26补充(path:01)：先取令牌再发送业务请求；CSRF 校验针对跨站伪造，不等同于业务授权。
 
 //9.26补充(path:01)：protectedRequest为什么先请求/auth/csrf?
-  //因为protectedRequest是保护请求，会先获取CSRF token，然后添加到请求头中
-  //所以需要先请求/auth/csrf，获取CSRF token
-  //然后添加到请求头中
-  //所以需要先请求/auth/csrf，获取CSRF token
+//因为protectedRequest是保护请求，会先获取CSRF token，然后添加到请求头中
+//所以需要先请求/auth/csrf，获取CSRF token
+//然后添加到请求头中
+//所以需要先请求/auth/csrf，获取CSRF token
 async function protectedRequest<T>(path: string, init: RequestInit) {
   //获取CSRF token
   const csrf = await request<CsrfPayload>('/auth/csrf')
@@ -531,21 +527,21 @@ async function protectedRequest<T>(path: string, init: RequestInit) {
 // 5. 返回RequestInit对象
 
 // jsonWrite：什么时候生成新的幂等键？
-  // 不传 key 时每次调用生成新键，后端负责去重。所以，jsonWrite函数会在不传 key 时每次调用生成新的幂等键。  
+// 不传 key 时每次调用生成新键，后端负责去重。所以，jsonWrite函数会在不传 key 时每次调用生成新的幂等键。
 
 //这段代码用了哪种写法？：箭头函数
-  //箭头函数是ES6中引入的一种新的函数定义方式，它是一种匿名函数，通常用于回调函数、事件处理函数等。
-  //不用箭头函数的写法：
-    // function jsonWrite(body?: unknown, idempotencyKey?: string): RequestInit {
-    //   return {
-    //     method: 'POST',
-    //     headers: {
-    //       'Content-Type': 'application/json',
-    //       'Idempotency-Key': idempotencyKey ?? createIdempotencyKey(),
-    //     },
-    //     body: body === undefined ? undefined : JSON.stringify(body),
-    //   }
-    // }
+//箭头函数是ES6中引入的一种新的函数定义方式，它是一种匿名函数，通常用于回调函数、事件处理函数等。
+//不用箭头函数的写法：
+// function jsonWrite(body?: unknown, idempotencyKey?: string): RequestInit {
+//   return {
+//     method: 'POST',
+//     headers: {
+//       'Content-Type': 'application/json',
+//       'Idempotency-Key': idempotencyKey ?? createIdempotencyKey(),
+//     },
+//     body: body === undefined ? undefined : JSON.stringify(body),
+//   }
+// }
 const jsonWrite = (body?: unknown, idempotencyKey?: string): RequestInit => ({
   method: 'POST',
   headers: {

@@ -1,0 +1,37 @@
+sequenceDiagram
+    autonumber
+    participant T as 探针测试<br/>ContentServiceDebugProbeTest 用例 1
+    participant S as ContentService<br/>listCatalog
+    participant Q as CatalogQuery<br/>selectIds
+    participant D as 替身协作者<br/>RecordingJdbcTemplate + 仓储替身
+
+    T->>S: listCatalog(RESOURCE, null, 2, null, null, null, null, null, null)
+    Note over S: D5-1 pageSize = max(1, min(2, 50)) = 2
+    Note over S: D5-2 moduleKey 为 null，不查模块注册表
+    Note over S: D5-3 resolvedKind = 入参 kind = RESOURCE
+    Note over S: D5-4 筛选键值同时为 null，不抛 400
+    S->>D: D5-6 configuredSort → select default_sort from catalog_sort_settings
+    D-->>S: null（未打桩）→ 第 203 行回落 DEFAULT
+    Note over S: D5-5 CatalogSort.resolve(RESOURCE, null, DEFAULT) = DEFAULT
+    Note over S: D5-7 CatalogCursor.decode(null, DEFAULT) = null（第一页）
+    S->>Q: D5-8 selectIds(Spec{kind=RESOURCE, limit=pageSize+1=3})
+    Q-->>S: BoundSql(sql, args)：join content_revisions + left join catalog_order_entries + order by coalesce(o.sort_order,20000) asc, c.id desc + limit ?
+    S->>D: D5-9 jdbc.query(sql, RowMapper, args)
+    D-->>S: ranked = [A(key=1), B(key=2), C(key=3)]
+    Note over S: D5-10 hasNext = ranked.size()(3) > pageSize(2) = true
+    Note over S: D5-11 page = subList(0,2) = [A, B]，C 被丢弃
+    S->>D: D5-12 inOrder([A,B]) → findPublicByIds(ids)
+    D-->>S: 替身按 id desc 返回 [C, B, A]（模拟真实 @Query 顺序）
+    Note over S: D5-13 byId 插入顺序 = C, B, A
+    Note over S: D5-14 第二个循环按 ids 还原 → ordered = [A, B]
+    Note over S: D5-12 逐个 filter(hasPublicSource)：A 通过、B 通过
+    Note over S: D5-12 map(toPublic(item,false))：列表不加载媒体
+    Note over S: D5-15 hasNext=true 且 page 非空 → 生成游标
+    Note over S: D5-16 nextCursor = encode(DEFAULT, "2", ITEM_B)
+    S-->>T: D5-17 PublicPage(items=[A,B], nextCursor=c1.…, sort="default")
+    Note over T: 断言：visible.size()=2、args 末项=3、queryCount=1、游标解码 key="2" / id=ITEM_B
+
+    Note over T,D: —— 用例 2 的差异：B 的来源是 http://localhost:8080/… ——
+    Note over S: page=[A,B] 不变，但 hasPublicSource(B)=false
+    Note over S: visible=[A]，本页 1 条 < pageSize 2
+    Note over S: 游标仍取原始页末条 ITEM_B，不是可见列表末条 A

@@ -1,0 +1,1412 @@
+{
+  "2": [
+    {
+      "title": "状态机与公开指针",
+      "drivers": [
+        "ContentItemStateTest#publishing_makes_an_approved_item_public_and_active",
+        "ContentItemStateTest#archiving_hides_the_public_projection",
+        "ContentItemStateTest#closing_a_published_item_keeps_its_candidate_workflow_intact",
+        "ContentItemStateTest#restoring_an_archived_item_requires_a_new_publish_decision"
+      ],
+      "fixture": "四个现有用例各自 new ContentItem；关闭用例在发布后开启候选。每个方法独立 Debug，不能依赖上个用例的对象。",
+      "breaks": [
+        [
+          "ContentItem",
+          "public void publish()"
+        ],
+        [
+          "ContentItem",
+          "public void closePublic("
+        ],
+        [
+          "ContentItem",
+          "public void archive()"
+        ],
+        [
+          "ContentItem",
+          "public void restore()"
+        ]
+      ],
+      "steps": [
+        "Debug 第一个方法，在 publish 行执行前记录四维状态；方法压在一行，F8 会一次执行整行，返回测试帧再比较。",
+        "依次 Debug 归档、关闭、恢复方法。关闭用例先执行 beginCandidateRevision，再进入 closePublic；关注工作流与发布状态互不替代。",
+        "在恢复用例最后一个断言处暂停，观察 HIDDEN、APPROVED、NONE；F9 跑完所有断言。"
+      ],
+      "obs": [
+        [
+          "测试帧 item.getWorkflowStatus()，发布后",
+          "PUBLISHED"
+        ],
+        [
+          "测试帧 item.getVisibility()，归档后",
+          "HIDDEN"
+        ],
+        [
+          "测试帧 item.getWorkflowStatus()，候选关闭后",
+          "DRAFT"
+        ],
+        [
+          "测试帧 item.getPublicationStatus()，恢复后",
+          "NONE"
+        ]
+      ],
+      "boundary": "实体内存变化；不证明权限、数据库 @Version 递增、发布接口全流程。touch() 还会更新时间，不能说动作只改表中列出的业务字段。"
+    },
+    {
+      "title": "revise 的两条分叉",
+      "drivers": [
+        "ContentManagementServiceReviseProbeTest#revising_a_published_item_creates_a_candidate_and_keeps_the_published_pointer",
+        "ContentManagementServiceReviseProbeTest#revising_a_draft_updates_the_same_revision_row"
+      ],
+      "fixture": "探针 C：实体 version=1，当前修订号=1。publishedItem() 使公开/当前指针相同；draftItem() 的公开指针为 null。仓储 saveAndFlush 原样返回传入对象。",
+      "breaks": [
+        [
+          "ContentManagementService",
+          "boolean createCandidate ="
+        ],
+        [
+          "ContentManagementService",
+          "revision = previous;"
+        ],
+        [
+          "ContentManagementService",
+          "item.setCurrentRevision(revision);"
+        ],
+        [
+          "ContentManagementService",
+          "item.beginCandidateRevision();"
+        ]
+      ],
+      "steps": [
+        "先安装探针。Debug 已发布方法，停在 createCandidate 赋值前；看 item.getWorkflowStatus()，F8 后看 createCandidate。",
+        "F8 跟到 saveAndFlush；不要 F7 进入 Mockito。跨过保存后看 revision.getRevisionNumber() 与 previous.getId()。",
+        "停在 setCurrentRevision 前后比较两个指针，回测试帧看 candidate 与 published。F9 完成审计验证。",
+        "另起 Debug 草稿方法，确认命中 revision = previous；比较对象身份和编号，最后公开指针仍为 null。"
+      ],
+      "obs": [
+        [
+          "revise 帧 createCandidate，赋值后（发布/草稿）",
+          "true / false"
+        ],
+        [
+          "测试帧 candidate.getRevisionNumber()，已发布用例",
+          "2"
+        ],
+        [
+          "测试帧 item.getPublishedRevision() == published",
+          "true"
+        ],
+        [
+          "草稿测试帧 saved.getValue() == item.getCurrentRevision()",
+          "true；编号 1"
+        ]
+      ],
+      "boundary": "新建/复用是对象与仓储调用证据，不是真实 INSERT/UPDATE 已执行；源代码中的行锁调用不等于 mock 获得真实锁。"
+    },
+    {
+      "title": "版本与不可编辑状态",
+      "drivers": [
+        "ContentManagementServiceReviseProbeTest#revise_rejects_a_stale_expected_version",
+        "ContentManagementServiceReviseProbeTest#revise_rejects_a_non_editable_workflow_status"
+      ],
+      "fixture": "过期版本用例实体 9L、请求 8L；状态用例实体 1L、请求 1L，但 item.submit() 将状态改为 PENDING_REVIEW。",
+      "breaks": [
+        [
+          "ContentManagementService",
+          "if (expectedVersion == null"
+        ],
+        [
+          "ContentManagementService",
+          "require(item.getRecordState()"
+        ],
+        [
+          "ContentManagementService",
+          "require(item.getWorkflowStatus() == WorkflowStatus.DRAFT"
+        ]
+      ],
+      "steps": [
+        "打开 ApiException 的 caught 异常断点；Debug 过期版本用例，比较 expectedVersion 与 item.getVersion()。",
+        "F8 执行版本判断，在异常处观察错误码，再 F9 让 assertThatThrownBy 接住它；红色异常断点并不表示测试失败。",
+        "换状态用例；版本检查通过后，到工作流白名单停住，确认拒绝发生在 createCandidate 之前。",
+        "回测试方法看 never().saveAndFlush 验证；不要把 mock 的 version 当作数据库自动递增结果。"
+      ],
+      "obs": [
+        [
+          "revise 帧 expectedVersion / item.getVersion()",
+          "8 / 9"
+        ],
+        [
+          "过期版本异常 code",
+          "CONTENT_VERSION_CONFLICT"
+        ],
+        [
+          "状态用例 item.getWorkflowStatus()",
+          "PENDING_REVIEW"
+        ],
+        [
+          "状态用例异常 code / 修订保存次数",
+          "CONTENT_NOT_EDITABLE / 0"
+        ]
+      ],
+      "boundary": "ARCHIVED 分支可读源码，但当前两个用例未驱动，不登记为断点已验证。"
+    },
+    {
+      "title": "类型投影与原始标题校验",
+      "drivers": [
+        "ContentManagementServiceTest#persists_resource_type_in_its_typed_detail_table",
+        "ContentManagementServiceTest#rejects_non_chinese_content_without_an_original_title_before_it_can_enter_review"
+      ],
+      "fixture": "成功输入 RESOURCE、zh-CN、resourceType=GUIDE；拒绝输入 en、originalTitle=null。JsonMapper 与策略对象真实运行，JDBC/仓储模拟。",
+      "breaks": [
+        [
+          "ContentManagementService",
+          "private void writeTypedDetails"
+        ],
+        [
+          "ContentManagementService",
+          "ORIGINAL_TITLE_REQUIRED"
+        ]
+      ],
+      "steps": [
+        "Debug 成功用例，进入 writeTypedDetails，观察 RESOURCE 分支构造的 SQL 与 GUIDE 参数。",
+        "返回测试帧，在 verify(jdbc).update 前暂停；F8 验证写入目标是 resource_revision_details。",
+        "Debug 非中文缺标题用例，在 ORIGINAL_TITLE_REQUIRED 抛出位置停住，往上看调用栈属于 create 的校验链。"
+      ],
+      "obs": [
+        [
+          "输入 draft 的 kind / language",
+          "RESOURCE / zh-CN，拒绝例 en"
+        ],
+        [
+          "成功 SQL 表名",
+          "resource_revision_details"
+        ],
+        [
+          "成功写入 resourceType 参数",
+          "GUIDE"
+        ],
+        [
+          "缺原始标题异常 code",
+          "ORIGINAL_TITLE_REQUIRED"
+        ]
+      ],
+      "boundary": "仅验证投影写入请求，数据库表结构、约束与事务需真实栈。"
+    },
+    {
+      "title": "克隆取历史最大修订号",
+      "drivers": [
+        "ContentRevisionCandidateServiceTest#clone_copies_revision_projections_and_keeps_the_published_revision",
+        "ContentRevisionCandidateServiceTest#clone_uses_the_highest_existing_revision_number"
+      ],
+      "fixture": "用例一当前修订 3、模拟 max=7；用例二当前修订 2、模拟 max=5。仓储保存原样返回新对象。",
+      "breaks": [
+        [
+          "ContentRevisionCandidateService",
+          "cloneCurrent("
+        ],
+        [
+          "ContentRevisionCandidateService",
+          "select coalesce(max(revision_number)"
+        ],
+        [
+          "ContentRevisionCandidateService",
+          "item.setCurrentRevision("
+        ]
+      ],
+      "steps": [
+        "Debug 用例一，在 max 查询语句前记录旧修订号，F8 越过 mock 查询后观察下一编号。",
+        "逐个 F8 越过 insert-select 调用；在测试断言区核对明细、筛选、关系、媒体及行动入口的 verify。",
+        "到 setCurrentRevision 后返回测试帧，看 candidate 与 published 指针。",
+        "换用例二验证 max=5 得到 6，不能用旧公开修订号 2+1 替代。"
+      ],
+      "obs": [
+        [
+          "用例一 candidate.getRevisionNumber()",
+          "8"
+        ],
+        [
+          "用例二 candidate.getRevisionNumber()",
+          "6"
+        ],
+        [
+          "item.getPublishedRevision() == published",
+          "true"
+        ],
+        [
+          "item.getCurrentRevision() == candidate",
+          "true；工作流 DRAFT"
+        ]
+      ],
+      "boundary": "缺号本身不一定冲突；关键是当前指针可能指向较早修订，而更大编号已存在。唯一约束竞争未由该单测验证。"
+    },
+    {
+      "title": "固定时刻驱动到期关闭",
+      "drivers": [
+        "ContentLifecycleServiceTest#closes_a_competition_from_its_typed_deadline_not_the_json_projection"
+      ],
+      "fixture": "已发布竞赛；detailsJson={}；模拟类型表 deadline_at=null、deadline_date=2026-09-02；run 的 now=2026-09-03T00:00:00Z。",
+      "breaks": [
+        [
+          "ContentLifecycleService",
+          "findTimedPublicItems()"
+        ],
+        [
+          "ContentLifecycleService",
+          "findByIdForUpdate("
+        ],
+        [
+          "ContentLifecycleService",
+          "item.closePublic("
+        ]
+      ],
+      "steps": [
+        "Debug 指定方法，在 run 入口观察传入 now；不要使用电脑当天日期解释测试。",
+        "F8 越过列表与逐条锁定查询，查看类型详情返回的日期；JSON 为空但仍有 deadline_date。",
+        "停在 closePublic 前记 ACTIVE，执行后记 CLOSED；返回测试帧核对审计理由“截止日期已到”。"
+      ],
+      "obs": [
+        [
+          "测试帧 detail.get(\"deadline_date\")",
+          "2026-09-02"
+        ],
+        [
+          "run 入参 now",
+          "2026-09-03T00:00:00Z"
+        ],
+        [
+          "测试帧 item.getPublicationStatus()",
+          "CLOSED"
+        ],
+        [
+          "审计动作 / 原因",
+          "CONTENT_CLOSED / 截止日期已到"
+        ]
+      ],
+      "boundary": "不证明定时调度、数据库咨询锁和多实例互斥。"
+    }
+  ],
+  "3": [
+    {
+      "title": "资格复查与会话失效",
+      "drivers": [
+        "AccountEligibilityFilterTest#invalidates_an_existing_session_when_the_account_is_no_longer_active"
+      ],
+      "fixture": "认证 principal=partner-one，仓储按 loginId 返回已 suspend 的账号；MockHttpSession 和 MockHttpServletResponse 为真实测试对象。",
+      "breaks": [
+        [
+          "AccountEligibilityFilter",
+          "Authentication authentication ="
+        ],
+        [
+          "AccountEligibilityFilter",
+          "accounts.findByLoginId("
+        ],
+        [
+          "AccountEligibilityFilter",
+          "if (session != null) session.invalidate();"
+        ],
+        [
+          "AccountEligibilityFilter",
+          "SecurityContextHolder.clearContext();"
+        ]
+      ],
+      "steps": [
+        "Debug 方法，停在取 authentication 行；F8 后看 authentication.getName()。查询依据是登录名，不是 accountId。",
+        "F8 越过账号查询并进入拒绝分支，记录 session 作废前后。",
+        "执行 clearContext 后返回测试帧，记录 response.getStatus()、session.isInvalid() 与认证对象；F9 完成。"
+      ],
+      "obs": [
+        [
+          "过滤器帧 authentication.getName()",
+          "partner-one"
+        ],
+        [
+          "测试帧 response.getStatus()",
+          "401"
+        ],
+        [
+          "测试帧 session.isInvalid()",
+          "true"
+        ],
+        [
+          "SecurityContextHolder.getContext().getAuthentication()",
+          "null"
+        ]
+      ],
+      "boundary": "手工 doFilter；不证明 Spring 注册顺序、Cookie 传输及下一个真实 HTTP 请求。"
+    },
+    {
+      "title": "真实 Argon2 与密码重置边界",
+      "drivers": [
+        "PasswordEncoderDebugProbeTest#real_encoder_uses_random_salt_and_checks_passwords",
+        "PasswordServiceTest#consuming_manual_reset_invalidates_remaining_manual_tokens_and_sessions"
+      ],
+      "fixture": "探针直接调用 SecurityConfig.passwordEncoder()，真实编码器；raw 为合成字符串。原 PasswordServiceTest 则使用 mock PasswordEncoder，两者不能混淆。",
+      "breaks": [
+        [
+          "SecurityConfig",
+          "passwordEncoder() { return Argon2PasswordEncoder"
+        ],
+        [
+          "PasswordService",
+          "public String consumeReset("
+        ],
+        [
+          "PasswordService",
+          "deleteSessions(account.getLoginId());"
+        ]
+      ],
+      "steps": [
+        "安装 config 包探针，Debug 探针方法。在 String second = encoder.encode(raw) 行暂停，观察 first。",
+        "F8 完成第二次编码，观察 first.equals(second)；在三个 matches 断言逐个 F8，错误口令返回 false。无需进入 Argon2 库内部循环。",
+        "另起 Debug 原重置测试，进入 consumeReset；看 passwords 是 mock，new-hash 是桩值。",
+        "跟到 token.consume 与 deleteSessions，再回测试帧核对 PASSWORD_RESET 类型隔离和会话删除调用。"
+      ],
+      "obs": [
+        [
+          "探针 first.equals(second)",
+          "false"
+        ],
+        [
+          "探针 encoder.matches(raw, first)",
+          "true"
+        ],
+        [
+          "探针 encoder.matches(\"WrongPassword123!\", first)",
+          "false"
+        ],
+        [
+          "重置测试 account.getPasswordHash()",
+          "new-hash（模拟值，不是 Argon2 实测输出）"
+        ]
+      ],
+      "boundary": "真实编码器行为已可测试；直接 new SecurityConfig 不证明容器装配，密码策略另在服务/请求校验层。"
+    },
+    {
+      "title": "登录完成委托",
+      "drivers": [
+        "AuthenticationRateLimiterTest#delegates_login_completion_to_the_same_subject_lock_transaction"
+      ],
+      "fixture": "RateLimitLockService 为 mock；依次调用 loginFailed(\"failed-attempt\") 与 loginSucceeded(\"successful-attempt\")。",
+      "breaks": [
+        [
+          "AuthenticationRateLimiter",
+          "public void loginFailed("
+        ],
+        [
+          "AuthenticationRateLimiter",
+          "public void loginSucceeded("
+        ]
+      ],
+      "steps": [
+        "Debug 测试，在 loginFailed 入口看 attemptId，F8 看委托参数 false。",
+        "F9 到 loginSucceeded，看另一 attemptId 和 true；不要进入 mock 寻找 SQL。",
+        "回测试帧执行两个 verify，记录委托方法相同、布尔值不同。"
+      ],
+      "obs": [
+        [
+          "失败输入",
+          "failed-attempt"
+        ],
+        [
+          "失败委托",
+          "completeLoginAttempt(..., false)"
+        ],
+        [
+          "成功输入",
+          "successful-attempt"
+        ],
+        [
+          "成功委托",
+          "completeLoginAttempt(..., true)"
+        ]
+      ],
+      "boundary": "只能证明委托协议，不能据此写“已证明并发计数不丢”；真实事务和锁在 VH04 D5。"
+    },
+    {
+      "title": "账号状态转换",
+      "drivers": [
+        "AccountAdministrationServiceTest#suspends_an_account_and_writes_a_minimal_audit_event",
+        "AccountAdministrationServiceTest#suspended_accounts_can_be_reactivated_but_revoked_accounts_are_final",
+        "AccountAdministrationServiceTest#refuses_to_mutate_the_super_admin_account"
+      ],
+      "fixture": "既有夹具提供账号与 mock 仓储/审计；分别覆盖停用、恢复、撤销终态和超管保护。",
+      "breaks": [
+        [
+          "AccountAdministrationService",
+          "ACCOUNT_REVOKED_FINAL"
+        ],
+        [
+          "AccountAdministrationService",
+          "ACCOUNT_SUPER_ADMIN_IMMUTABLE"
+        ],
+        [
+          "Account",
+          "public void suspend()"
+        ]
+      ],
+      "steps": [
+        "Debug 停用方法，F7 进 account.suspend，F8 后回测试帧观察资格与活跃性，核对审计 verify。",
+        "Debug 恢复/终态方法；每次调用前记录当前 qualificationStatus，再运行到异常断点。",
+        "Debug 超管保护方法，观察拒绝发生在状态写入之前；其余三条账号测试按 README 整类基线运行。"
+      ],
+      "obs": [
+        [
+          "停用后 account.getQualificationStatus()",
+          "SUSPENDED"
+        ],
+        [
+          "停用后 account.isActive()",
+          "false"
+        ],
+        [
+          "撤销后恢复异常",
+          "ACCOUNT_REVOKED_FINAL"
+        ],
+        [
+          "超管变更异常",
+          "ACCOUNT_SUPER_ADMIN_IMMUTABLE"
+        ]
+      ],
+      "boundary": "管理员操作的服务规则；HTTP 角色授权和会话失效全链需另验。"
+    },
+    {
+      "title": "激活令牌签发与消费",
+      "drivers": [
+        "ActivationServiceTest#stores_only_a_hash_and_allows_the_token_to_be_consumed_once",
+        "ActivationServiceTest#refuses_to_activate_a_revoked_account",
+        "ActivationServiceTest#issuing_or_consuming_activation_does_not_invalidate_password_reset_tokens"
+      ],
+      "fixture": "内存 ActivationToken 实体真实；仓储 mock 按测试返回捕获到的 token；PasswordEncoder mock 返回 argon2-hash。",
+      "breaks": [
+        [
+          "ActivationService",
+          "public Account consume("
+        ],
+        [
+          "ActivationToken",
+          "public void consume("
+        ]
+      ],
+      "steps": [
+        "Debug 第一方法，issue 后在 String raw 后续断言处停住，看 saved.getValue() 的 hash/有效期。",
+        "F7 进入 consume，经过加锁与令牌可用性检查；观察 account 密码和状态，再观察 token 消费。",
+        "第二次 consume 会抛异常，由 assertThatThrownBy 接住；另跑撤销账号与 PASSWORD_RESET 类型用例，记录拒绝点。"
+      ],
+      "obs": [
+        [
+          "测试帧 token.getTokenHash().equals(raw)",
+          "false；hash 为 64 字符"
+        ],
+        [
+          "第一次消费后 account.isActive()",
+          "true"
+        ],
+        [
+          "第二次消费",
+          "抛激活凭据无效/已使用异常"
+        ],
+        [
+          "PASSWORD_RESET 被激活入口消费",
+          "ACTIVATION_TOKEN_INVALID"
+        ]
+      ],
+      "boundary": "mock 查询不验证哈希 WHERE 是否真实匹配；没有过期夹具的分支不写成已测。"
+    },
+    {
+      "title": "生产配置拒绝路径",
+      "drivers": [
+        "ProductionConfigurationValidatorTest#acceptsExplicitSecureProductionConfiguration",
+        "ProductionConfigurationValidatorTest#rejectsLocalPublicUrlAndPlaceholderDatabasePassword",
+        "ProductionConfigurationValidatorTest#rejectsRootDatabaseAccountAndTrustAllProxyRange",
+        "ProductionConfigurationValidatorTest#rejectsEnabledPrivateContactOrCommunityGateWithoutProductionSecrets",
+        "ProductionConfigurationValidatorTest#acceptsCommunityGateWithIndependentProductionKeyRing"
+      ],
+      "fixture": "测试构造校验器并直接 run；所有地址和字符串仅作为内存校验输入，不发起数据库/对象存储连接。",
+      "breaks": [
+        [
+          "ProductionConfigurationValidator",
+          "public void run("
+        ],
+        [
+          "ProductionConfigurationValidator",
+          "if (!cookieSecure)"
+        ]
+      ],
+      "steps": [
+        "先 Debug 合法配置方法，在 run 入口核对 cookieSecure=true，F9 确认返回。",
+        "逐个 Debug 三个 rejects 方法；加 IllegalStateException caught 断点，记录首先失败的配置名。",
+        "注意根账号与信任所有网络是两次不同调用，F9 才能观察后一个。",
+        "最后跑独立密钥环成功例。cookieSecure=false 不在这五条原用例中，不能把存在该 if 当作已验证。"
+      ],
+      "obs": [
+        [
+          "合法配置 run",
+          "无异常"
+        ],
+        [
+          "localhost 公网地址",
+          "异常包含 VOIDHAVEN_PUBLIC_BASE_URL"
+        ],
+        [
+          "数据库 root / 全信任代理",
+          "分别拒绝 least-privilege / must not trust every network"
+        ],
+        [
+          "缺私有值密钥或门禁 secret",
+          "在对应配置项拒绝"
+        ]
+      ],
+      "boundary": "直接 run 证明校验逻辑；自动启动执行与 profile 装配是源码/真实栈项目。"
+    },
+    {
+      "title": "首管引导与本地初始化",
+      "drivers": [
+        "BootstrapAdminCommandTest#requiresExplicitBootstrapAdminProfile",
+        "BootstrapAdminCommandTest#rejectsUnsupportedEnvironmentBeforeOpeningATransaction",
+        "BootstrapAdminCommandTest#refusesToBootstrapWhenAnAccountAlreadyExists",
+        "BootstrapAdminCommandTest#testServerBootstrapPrintsTheOneTimeActivationUrlAndAuditsWithASyntheticRequestId",
+        "LocalDataInitializerTest#assigns_module_key_before_the_first_content_insert"
+      ],
+      "fixture": "Bootstrap fixture mock TransactionTemplate/仓储；count=1 拒绝，count=0 创建；LocalDataInitializerTest 手工构造，不是 profile 启动测试。",
+      "breaks": [
+        [
+          "BootstrapAdminCommand",
+          "public void run("
+        ],
+        [
+          "BootstrapAdminCommand",
+          "accounts.count()"
+        ]
+      ],
+      "steps": [
+        "Debug profile 注解测试，只在测试断言处暂停：检查 bootstrap-admin 注解。",
+        "Debug 不支持环境与非空表方法，观察在事务前/激活前拒绝；“空库”在此具体指 accounts.count()==0。",
+        "Debug 成功例，记录 count=0、合成激活令牌和 audit 的 requestId 长度；不要访问输出中的地址。",
+        "单独 Debug LocalDataInitializerTest，在它的 saveAndFlush 替身回调和最后断言暂停，观察保存前已有 moduleKey；它不证明只在 local 启动。"
+      ],
+      "obs": [
+        [
+          "注解 profile.value()",
+          "仅 bootstrap-admin"
+        ],
+        [
+          "非空 accounts.count()",
+          "1，拒绝且不签发激活"
+        ],
+        [
+          "成功例审计 requestId",
+          "非空 26 字符"
+        ],
+        [
+          "本地初始化首次保存",
+          "moduleKey 已赋值"
+        ]
+      ],
+      "boundary": "首管支持 production/test-server 且需显式 bootstrap-admin，不是“只在 local”；本次仅跑 mock，不执行真实初始化命令。"
+    }
+  ],
+  "4": [
+    {
+      "title": "幂等拒绝、失败释放与回放",
+      "drivers": [
+        "IdempotencyServiceTest#rejects_a_matching_request_while_the_first_request_owns_the_key",
+        "IdempotencyServiceTest#rejects_reusing_a_key_for_a_different_payload",
+        "IdempotencyServiceTest#releases_the_reservation_when_the_business_action_fails",
+        "IdempotencyServiceTest#refuses_to_replay_a_sensitive_single_delivery_result",
+        "IdempotencyServiceTest#restores_homepage_replacement_as_typed_records_instead_of_raw_lists"
+      ],
+      "fixture": "reservations 为 mock：在途 Existing 的状态码 102；异体请求 hash 不同；业务失败例 reserve=null；敏感结果不可重放；最后一例回放类型化首页记录。",
+      "breaks": [
+        [
+          "IdempotencyService",
+          "if (existing != null) return restore"
+        ],
+        [
+          "IdempotencyService",
+          "private <T> T restore("
+        ],
+        [
+          "IdempotencyService",
+          "reservations.release("
+        ]
+      ],
+      "steps": [
+        "依次 Debug 五个方法；先在 execute 的 reserve 返回后观察 existing，再 F7 进 restore。",
+        "在途例看 responseStatus=102；F9 回到测试断言区观察 actions.get()==0。",
+        "异体例先比较 hash，再看错误码；失败例在 action.get() 抛错后跟到 catch/release。",
+        "敏感例从 executeSingleDelivery 进入，观察不可回放拒绝；最后的类型化回放例检查返回记录类型，不重新执行 action。"
+      ],
+      "obs": [
+        [
+          "在途测试 actions.get()",
+          "0"
+        ],
+        [
+          "异体异常 code",
+          "IDEMPOTENCY_KEY_REUSED"
+        ],
+        [
+          "业务失败后 release 调用次数",
+          "1"
+        ],
+        [
+          "敏感例异常 / 回放例对象",
+          "SENSITIVE_RESULT_NOT_REPLAYABLE / 类型化 record"
+        ]
+      ],
+      "boundary": "本测试从 service 开始，没有限流拦截器或参数解析。REQUIRES_NEW 代理、锁竞争不能在此证实。"
+    },
+    {
+      "title": "六个聚合的版本冲突",
+      "drivers": [
+        "ContentManagementServiceTest#refuses_to_review_a_stale_item_version",
+        "CommunityServiceTest#update_rejects_stale_versions",
+        "CatalogOrderServiceTest#rejects_stale_version_and_duplicate_content",
+        "HomepageAdministrationServiceTest#rejects_stale_curation_version",
+        "ProjectJoinServiceTest#update_rejects_stale_versions",
+        "PublicCaseAdministrationServiceTest#a_stale_version_does_not_write_status_history"
+      ],
+      "fixture": "按每个用例的 when 行读取数据库版本与请求版本。内容 9/8；项目入口 3/2；回执用 JDBC 更新返回 0 模拟竞争。不要给六类套同一个实现。",
+      "breaks": [
+        [
+          "ContentManagementService",
+          "public Managed decide("
+        ],
+        [
+          "CommunityService",
+          "COMMUNITY_ENTRY_VERSION_CONFLICT"
+        ],
+        [
+          "CatalogOrderService",
+          "CATALOG_VERSION_CONFLICT"
+        ],
+        [
+          "HomepageAdministrationService",
+          "HOMEPAGE_VERSION_CONFLICT"
+        ],
+        [
+          "ProjectJoinService",
+          "PROJECT_JOIN_ENTRY_VERSION_CONFLICT"
+        ],
+        [
+          "PublicCaseAdministrationService",
+          "if (updated != 1)"
+        ]
+      ],
+      "steps": [
+        "逐个 Debug 六个方法，仅启用当前聚合的断点和 ApiException caught 断点。",
+        "内容审核例由 findWithCurrentRevisionById 读取后比较；项目入口从 for update 读取后比较；在各自帧记录 expectedVersion。",
+        "回执例先执行带 where version=? 的更新，再看 updated=0 触发冲突；这是影响行数判定，不是统一的 entity.getVersion 比较。",
+        "返回测试帧完成异常断言；回执还验证不写 public_case_status_history。将六个结果分别记入观察表。"
+      ],
+      "obs": [
+        [
+          "内容冲突 code",
+          "CONTENT_VERSION_CONFLICT"
+        ],
+        [
+          "社群 / 目录冲突 code",
+          "COMMUNITY_ENTRY_VERSION_CONFLICT / CATALOG_VERSION_CONFLICT"
+        ],
+        [
+          "首页 / 项目冲突 code",
+          "HOMEPAGE_VERSION_CONFLICT / PROJECT_JOIN_ENTRY_VERSION_CONFLICT"
+        ],
+        [
+          "回执 updated / code / 历史写入次数",
+          "0 / CASE_VERSION_CONFLICT / 0"
+        ]
+      ],
+      "boundary": "直接调用服务没有 HTTP If-Match 解析；mock 的 for update 字符串也没有真实锁。真实锁位置需逐实现核对。"
+    },
+    {
+      "title": "三个限流委托",
+      "drivers": [
+        "PublicWriteRateLimiterTest#limits_a_hashed_network_subject_without_storing_the_raw_value",
+        "PublicStatusQueryRateLimiterTest#uses_a_separate_status_query_bucket",
+        "AuthenticationRateLimiterTest#delegates_login_completion_to_the_same_subject_lock_transaction"
+      ],
+      "fixture": "公开写额度=2，第三次失败由 mock 序列注入；查询额度=60；登录测试只调用完成方法。",
+      "breaks": [
+        [
+          "PublicWriteRateLimiter",
+          "public void requireAvailable("
+        ],
+        [
+          "PublicStatusQueryRateLimiter",
+          "public void requireAvailable("
+        ],
+        [
+          "AuthenticationRateLimiter",
+          "public void loginSucceeded("
+        ]
+      ],
+      "steps": [
+        "Debug 公开写方法，在 requireAvailable 看原主体与转换后传给 reservePublicWrite 的参数；连按 F9 观察三次调用。",
+        "第三次异常来自 mock RateLimitLockService，不是内存计数器计算。",
+        "Debug 查询用例，回测试帧检查 reservePublicStatusQuery(...,60,Duration)；再 Debug 登录例看 true/false。"
+      ],
+      "obs": [
+        [
+          "公开写输入主体",
+          "203.0.113.55"
+        ],
+        [
+          "公开写锁服务参数",
+          "主体摘要、2、1 小时"
+        ],
+        [
+          "查询委托方法 / 额度",
+          "reservePublicStatusQuery / 60"
+        ],
+        [
+          "登录完成方法",
+          "completeLoginAttempt"
+        ]
+      ],
+      "boundary": "可证明主体转换和桶方法选择，不能证明真实计数或隔离事务；D5 再查真库。"
+    },
+    {
+      "title": "删除任务租约与重试",
+      "drivers": [
+        "MediaOrphanCleanupServiceTest#queues_before_deleting_from_private_storage",
+        "MediaOrphanCleanupServiceTest#failed_storage_deletion_stays_retryable",
+        "MediaOrphanCleanupServiceTest#each_cleanup_invocation_uses_a_distinct_claim_id"
+      ],
+      "fixture": "第一例提供一个孤儿与一个任务，完成更新返回 1；第二例 storage.delete 抛 synthetic 错误；第三例返回空任务列表并捕获两次 claim。",
+      "breaks": [
+        [
+          "MediaOrphanCleanupService",
+          "public int processDueDeletions()"
+        ],
+        [
+          "MediaOrphanCleanupService",
+          "storage.delete("
+        ],
+        [
+          "MediaOrphanCleanupService",
+          "if (updated == 1) completed++;"
+        ]
+      ],
+      "steps": [
+        "Debug 第一例，跟进 queueUnattachedAssets 再 processDueDeletions，观察先登记任务再删除存储。",
+        "在 SUCCEEDED 更新后看 updated=1，completed 加 1；记录 SQL 的 locked_by 条件，而不是假装 SQL 已执行。",
+        "Debug 失败例，在 storage.delete 异常后跟到 FAILED 更新，回测试帧看 removed=0。",
+        "Debug 第三例，在最后断言看 claims.getAllValues()：同 instance-a 前缀、每次调用不同 claim。"
+      ],
+      "obs": [
+        [
+          "成功测试 removed",
+          "1"
+        ],
+        [
+          "失败测试 removed",
+          "0"
+        ],
+        [
+          "失败写入任务状态",
+          "FAILED，携带异常类名"
+        ],
+        [
+          "第三例 claims.getAllValues()",
+          "两个不同的 instance-a: 开头值"
+        ]
+      ],
+      "boundary": "租约校验的真实效果在 D5；单测不能直接改“数据库 locked_by 行”，模拟失去租约应改 SUCCEEDED 更新返回值。"
+    },
+    {
+      "title": "真实 MySQL 并发（环境门槛）",
+      "drivers": [
+        "DistributedSafetyIT#serializes_rate_limits_advisory_locks_and_media_leases"
+      ],
+      "fixture": "测试创建独立 mysql:8.4 容器和测试库，Flyway 迁移；8 个线程用 CyclicBarrier 同步。前提是 Docker 引擎与镜像可用。",
+      "breaks": [
+        [
+          "RateLimitLockService",
+          "reservePublicWrite("
+        ],
+        [
+          "MediaOrphanCleanupService",
+          "public int processDueDeletions()"
+        ]
+      ],
+      "steps": [
+        "先检查环境；未具备 Docker 则在台账写 BLOCKED_ENV，不要为凑数将本站勾成完成。执行本章专用 IT 命令，读 failsafe XML 的 skipped。",
+        "在 IT 的 Assumptions.assumeTrue 行打断点，Debug 精确方法；通过后只在 Future.get 全部结束之后的断言处暂停，避免把工作线程停在 barrier/锁内造成超时。",
+        "记录公开写 allowed=2、limited=6，再对照查询桶第三次拒绝、登录 5/3、邀请码 2/6。",
+        "继续到咨询锁、租约、唯一约束断言。实际看见的结果才填观察表；真库测试也不覆盖整个 HTTP 过滤链。"
+      ],
+      "obs": [
+        [
+          "公开写 / 登录 并发允许-拒绝",
+          "2-6 / 5-3"
+        ],
+        [
+          "查询超额 / 写桶影响",
+          "PUBLIC_STATUS_QUERY_RATE_LIMITED / 不增加对应公开写记录"
+        ],
+        [
+          "邀请码成功数 / use_count",
+          "2 / 2"
+        ],
+        [
+          "咨询锁 / 租约 / login_id 唯一竞争",
+          "第二执行者拒绝 / A 持有 / 1 成功 1 冲突"
+        ]
+      ],
+      "boundary": "本轮不启动 Docker，不把该 IT 当作通过。这里的服务/事务管理器由测试构造，也不能自动证明幂等 Spring 代理的独立事务语义。"
+    }
+  ],
+  "5": [
+    {
+      "title": "真实图片解码与重编码",
+      "drivers": [
+        "MediaValidatorTest#decodes_real_png_pixels_and_reencodes_without_the_input_metadata",
+        "MediaValidatorTest#rejects_non_image_bytes_even_when_a_client_may_claim_an_image_content_type"
+      ],
+      "fixture": "第一例 ImageIO 生成 2×3 ARGB PNG；第二例输入 not an image 的字节。不使用用户图片。",
+      "breaks": [
+        [
+          "MediaValidator",
+          "public ValidatedImage validate("
+        ],
+        [
+          "MediaValidator",
+          "BufferedImage decoded = reader.read(0);"
+        ],
+        [
+          "MediaValidator",
+          "byte[] normalized = output.toByteArray();"
+        ]
+      ],
+      "steps": [
+        "Debug 第一例，进入 validate，观察 reader 格式、width、height。",
+        "F8 越过解码，看 alpha=true，于是输出 PNG；越过 ImageIO.write 后看 normalized，回测试帧看 validated。",
+        "记录输入输出长度即可，不预设一定不同；现有样本没有特制元数据，不能用长度差声称 EXIF 清理已被测试。",
+        "Debug 非图片例，在 readers.hasNext 拒绝处观察 MEDIA_REJECTED，随后由测试接住异常。"
+      ],
+      "obs": [
+        [
+          "测试帧 validated.width() / height()",
+          "2 / 3"
+        ],
+        [
+          "validated.mediaType()",
+          "image/png"
+        ],
+        [
+          "ImageIO.read(validated.bytes) 的结果",
+          "可解码图片"
+        ],
+        [
+          "非图片异常 code",
+          "MEDIA_REJECTED"
+        ]
+      ],
+      "boundary": "真实解码/重编码已被驱动；元数据剥离是代码机制，专门的带元数据样本覆盖仍待补，不能以测试方法名替代证据。"
+    },
+    {
+      "title": "上传、二维码暂存与失败补偿",
+      "drivers": [
+        "MediaServiceTest#attaches_a_normalized_image_only_to_an_editable_draft_and_audits_the_minimum_event",
+        "MediaServiceTest#action_qr_upload_uses_a_reservation_instead_of_revision_media",
+        "MediaServiceTest#action_media_cannot_be_reused_by_another_content_or_account",
+        "MediaRollbackDebugProbeTest#jdbc_failure_without_synchronization_deletes_immediately",
+        "MediaRollbackDebugProbeTest#rollback_callback_deletes_uploaded_object",
+        "MediaRollbackDebugProbeTest#commit_callback_keeps_uploaded_object"
+      ],
+      "fixture": "既有例使用真实内容实体、mock validator/storage/JDBC；新增探针使用 DRAFT 和模拟图片，并分别关闭同步、手动触发回滚、手动触发提交。",
+      "breaks": [
+        [
+          "MediaService",
+          "storage.put(key, image.mediaType(), image.bytes());"
+        ],
+        [
+          "MediaService",
+          "TransactionSynchronizationManager.registerSynchronization("
+        ],
+        [
+          "MediaService",
+          "@Override public void afterCompletion(int status)"
+        ],
+        [
+          "MediaService",
+          "insert into content_action_media_reservations"
+        ]
+      ],
+      "steps": [
+        "先 Debug 正文上传方法，跟到 put 前，确认归属/状态/配额检查已经完成；F8 记录 put、两次写库、审计的顺序。",
+        "Debug 二维码例，比较 reservations 与 revision_media 两种写入；归属错误例应在 requireActionMedia 抛 CONTENT_ACTION_MEDIA_INVALID。",
+        "安装探针，Debug 无同步失败例，JDBC 抛错后 catch 立即请求 storage.delete，原异常继续抛出。",
+        "Debug rollback 例：upload 返回后尚未 delete；在 callbacks.get(0).afterCompletion(status) 行 F7，观察 status=1 后 delete 被调用。",
+        "换 commit 例 status=0，delete 不调用；finally 清理线程同步状态，每次重跑用新 Debug 进程。"
+      ],
+      "obs": [
+        [
+          "正文上传主顺序",
+          "校验→put→media_assets→revision_media→audit"
+        ],
+        [
+          "二维码暂存表",
+          "content_action_media_reservations"
+        ],
+        [
+          "无同步失败 / 回滚完成后 delete 次数",
+          "各 1"
+        ],
+        [
+          "提交完成后 delete 次数",
+          "0"
+        ]
+      ],
+      "boundary": "手工回调证明补偿分支，不证明事务管理器真实触发或对象真删除。删除异常被吞掉；回滚后的无数据库记录对象不能笼统声称必被现有孤儿扫描找到。"
+    },
+    {
+      "title": "公开、社群和后台媒体读取",
+      "drivers": [
+        "MediaReadServiceTest#public_action_qr_requires_an_open_published_public_entry",
+        "MediaReadServiceTest#community_action_qr_stays_on_the_gated_path_and_still_requires_an_open_item",
+        "MediaReadServiceTest#managed_preview_includes_attached_action_images_after_reservation_expiry",
+        "MediaReadServiceTest#project_join_public_qr_is_readable_through_the_public_media_path",
+        "MediaReadServiceTest#project_join_gated_qr_stays_on_the_community_path"
+      ],
+      "fixture": "jdbc.query 返回合成 storage key；测试 ArgumentCaptor<String> 捕获完整 SQL；MediaStorage 为 mock。",
+      "breaks": [
+        [
+          "MediaReadService",
+          "loadPublic("
+        ],
+        [
+          "MediaReadService",
+          "loadCommunity("
+        ],
+        [
+          "MediaReadService",
+          "loadManaged("
+        ]
+      ],
+      "steps": [
+        "依次 Debug 五个方法，在对应 load 方法入口停住，然后 F8 到 JDBC 调用；不要进入 Mockito。",
+        "返回测试帧，先 F8 执行 verify(...sql.capture())，再在下一条断言处用 sql.getValue()。捕获前求值会失败。",
+        "公开路径逐项查 ca.access_level、published_revision、OPEN、visibility、record_state，以及社群入口分支的 ce.access_level；这些属于不同 EXISTS/OR 分支，不能当作所有记录必须同时具备两个入口。",
+        "社群例只要求不含 ca.access_level = PUBLIC；项目门禁例的不含条件限定为 pje.access_level；不要扩大成整个 SQL 不能含 PUBLIC。",
+        "后台例看 current_revision 与 reservations 两个路径，最后 F9 完成断言。"
+      ],
+      "obs": [
+        [
+          "公开 ca 分支",
+          "PUBLIC + 已发布修订 + OPEN + PUBLIC 可见 + ACTIVE"
+        ],
+        [
+          "社群 ca 分支",
+          "COMMUNITY_GATED，仍要求 OPEN/已发布"
+        ],
+        [
+          "后台路径",
+          "current_revision 与暂存 reservations"
+        ],
+        [
+          "项目公开 / 社群路径",
+          "公开含 pje.access_level；社群测试不含该过滤"
+        ]
+      ],
+      "boundary": "只证明 SQL 形状与调用参数；SQL 执行、真实授权和索引未验证。"
+    },
+    {
+      "title": "孤儿清理与租约",
+      "drivers": [
+        "MediaOrphanCleanupServiceTest#queues_before_deleting_from_private_storage",
+        "MediaOrphanCleanupServiceTest#failed_storage_deletion_stays_retryable",
+        "MediaOrphanCleanupServiceTest#each_cleanup_invocation_uses_a_distinct_claim_id"
+      ],
+      "fixture": "与 VH04 D4 同一组三用例；此处独立提供步骤，无需返回前一章才能操作。",
+      "breaks": [
+        [
+          "MediaOrphanCleanupService",
+          "public int queueUnattachedAssets()"
+        ],
+        [
+          "MediaOrphanCleanupService",
+          "public int processDueDeletions()"
+        ],
+        [
+          "MediaOrphanCleanupService",
+          "if (updated == 1) completed++;"
+        ]
+      ],
+      "steps": [
+        "Debug queues_before 方法，queueUnattachedAssets 先标记 DELETION_PENDING 再登记任务；记录 JDBC 请求顺序。",
+        "进入 processDueDeletions 看 claim，再跟到 storage.delete、SUCCEEDED 更新和媒体 DELETED 更新。",
+        "Debug failed_storage 方法，delete 抛异常后记 FAILED 与 removed=0；这表示以后可重试，不是本次已删除。",
+        "Debug distinct_claim 方法，在 claims.capture 完成后观察两个不同 claim。"
+      ],
+      "obs": [
+        [
+          "成功 removed",
+          "1"
+        ],
+        [
+          "失败 removed",
+          "0"
+        ],
+        [
+          "成功 SQL 状态顺序",
+          "DELETION_PENDING → SUCCEEDED / DELETED"
+        ],
+        [
+          "失败任务状态",
+          "FAILED，可重试"
+        ]
+      ],
+      "boundary": "扫描起点是数据库 media_assets；无法凭此保证所有仅存在于对象存储的孤儿都能被发现。"
+    },
+    {
+      "title": "正文媒体引用、富文本与缓存",
+      "drivers": [
+        "MarkdownDocumentServiceTest#builds_a_safe_document_with_inline_media",
+        "MarkdownDocumentServiceTest#rejects_html_and_remote_images",
+        "RichTextPolicyTest#rejects_html_or_event_attribute_shapes",
+        "PublicMediaControllerTest#refuses_to_cache_public_media_so_an_emergency_hide_takes_effect_on_the_next_request"
+      ],
+      "fixture": "合成 Markdown 含一个 media:ULID；非法输入为 HTML/远程图片/事件字段；控制器测试直接调用并检查 Cache-Control。",
+      "breaks": [
+        [
+          "MarkdownDocumentService",
+          "public ObjectNode parse("
+        ],
+        [
+          "RichTextPolicy",
+          "public void requireAllowed("
+        ],
+        [
+          "PublicMediaController",
+          "noStore()"
+        ]
+      ],
+      "steps": [
+        "Debug Markdown 成功例，在 parse 返回后观察 document.version=2；到 mediaIds 返回看唯一 ID。",
+        "Debug rejects_html_and_remote_images，逐次到 ApiException，区分 HTML 与远程图片两个拒绝输入。",
+        "Debug 富文本非法形状用例，观察 html 块与 onClick 被拒绝。",
+        "Debug 控制器缓存例，在构造响应处与测试断言处暂停，记录 no-store；该例不证明 Service 授权 SQL。"
+      ],
+      "obs": [
+        [
+          "测试帧 document.path(\"version\").asInt()",
+          "2"
+        ],
+        [
+          "markdown.mediaIds(document)",
+          "一个合成 ULID"
+        ],
+        [
+          "HTML / 远程图片 / 事件字段",
+          "拒绝"
+        ],
+        [
+          "媒体响应缓存头",
+          "no-store"
+        ]
+      ],
+      "boundary": "mediaIds 只抽取 ID，不查询数据库，也不验证归属；归属校验在写入修订服务。旧稿所称 legacyToMarkdown 往返不是这两个测试内容。"
+    }
+  ],
+  "6": [
+    {
+      "title": "公开写拦截器与主体",
+      "drivers": [
+        "PublicWriteInterceptorDebugProbeTest#post_submission_uses_write_bucket",
+        "PublicWriteInterceptorDebugProbeTest#get_does_not_consume_either_bucket",
+        "PublicWriteInterceptorDebugProbeTest#limiter_failure_propagates_before_prehandle_returns",
+        "ClientNetworkSubjectTest#ignores_forwarded_address_when_direct_peer_is_not_a_trusted_proxy",
+        "ClientNetworkSubjectTest#accepts_only_a_single_numeric_address_from_a_trusted_proxy"
+      ],
+      "fixture": "探针 mock 两个限流器和 network，MockHttp 请求真实。主体测试另用真实 ClientNetworkSubject；不要把探针固定返回的地址当作代理解析结果。",
+      "breaks": [
+        [
+          "PublicWriteRateLimitInterceptor",
+          "if (!\"POST\".equals(request.getMethod()))"
+        ],
+        [
+          "PublicWriteRateLimitInterceptor",
+          "if (WRITE_PATHS.contains(path))"
+        ],
+        [
+          "ClientNetworkSubject",
+          "public String resolve("
+        ]
+      ],
+      "steps": [
+        "安装 web 包探针，Debug POST 写入例，在 preHandle 看 method、URI；F8 到 writeLimiter，回测试核对 query 未调用。",
+        "Debug GET 例，在第一行直接返回 true，network 也不调用。",
+        "Debug 限流异常例，异常来自 mock；不经过 Controller，记录 ApiException code。",
+        "另跑两条 ClientNetworkSubject 测试，在 resolve 入口看直连地址、转发头与受信配置，跟到返回。"
+      ],
+      "obs": [
+        [
+          "写入例 request.getMethod() / getRequestURI()",
+          "POST / /api/v1/public/submissions"
+        ],
+        [
+          "写入桶调用 / 查询桶调用",
+          "1 / 0"
+        ],
+        [
+          "GET 时任一限流桶调用",
+          "0"
+        ],
+        [
+          "mock 超额异常 code",
+          "PUBLIC_WRITE_RATE_LIMITED"
+        ]
+      ],
+      "boundary": "手工 preHandle 仅证明分派及异常传播；MVC 顺序、真实额度消耗、Retry-After、最终 HTTP 429 需真实栈或专门 MVC 测试。"
+    },
+    {
+      "title": "查询桶与公开写桶分离",
+      "drivers": [
+        "PublicWriteInterceptorDebugProbeTest#post_status_uses_query_bucket",
+        "PublicStatusQueryRateLimiterTest#uses_a_separate_status_query_bucket",
+        "PublicStatusQueryRateLimiterTest#surfaces_status_query_limit_without_consuming_write_quota"
+      ],
+      "fixture": "POST /api/v1/public/submissions/status-query；限流服务测试构造额度 60、窗口 3600 秒。",
+      "breaks": [
+        [
+          "PublicWriteRateLimitInterceptor",
+          "else if (STATUS_QUERY_PATHS.contains(path))"
+        ],
+        [
+          "PublicStatusQueryRateLimiter",
+          "public void requireAvailable("
+        ]
+      ],
+      "steps": [
+        "Debug 探针 query 方法，进入 else-if 查询路径，返回测试 verify query 被调用且 write 不被调用。",
+        "Debug uses_a_separate 方法，看 requireAvailable 的摘要主体，再回测试查看 reservePublicStatusQuery 的额度 60。",
+        "Debug surfaces 方法，在锁服务 mock 抛错处和测试异常断言停住，记录查询专用错误码。"
+      ],
+      "obs": [
+        [
+          "路径",
+          "/api/v1/public/submissions/status-query"
+        ],
+        [
+          "探针 write 调用次数",
+          "0"
+        ],
+        [
+          "锁服务方法 / 额度",
+          "reservePublicStatusQuery / 60"
+        ],
+        [
+          "异常 code",
+          "PUBLIC_STATUS_QUERY_RATE_LIMITED"
+        ]
+      ],
+      "boundary": "委托隔离不等于真实数据库计数隔离；真库见 VH04 D5。"
+    },
+    {
+      "title": "回执生成、哈希存储与查询",
+      "drivers": [
+        "PublicCaseDebugProbeTest#creates_receipt_stores_only_hash_and_queries_it",
+        "PublicCaseDebugProbeTest#wrong_blank_and_missing_receipts_share_one_error_code"
+      ],
+      "fixture": "RecordingJdbc 捕获 SQL 参数；幂等 mock 的 Answer 真正调用 Supplier.get；无联系人的 FEEDBACK。状态查询行由已捕获 hash 构造。",
+      "breaks": [
+        [
+          "PublicCaseService",
+          "protected CreatedCase createSubmission("
+        ],
+        [
+          "PublicCaseService",
+          "String queryCode = SecureTokens.randomUrlToken();"
+        ],
+        [
+          "PublicCaseService",
+          "if (!SecureTokens.constantTimeEquals("
+        ],
+        [
+          "SecureTokens",
+          "public static boolean constantTimeEquals("
+        ]
+      ],
+      "steps": [
+        "安装探针，Debug 成功例；在 action.get 行 F7 进入创建回调，观察 id/queryCode 的生成。",
+        "F8 越过 RecordingJdbc.update，回测试帧看 jdbc.writes.get(0)[6]：64 位 hash，不是原查询码。",
+        "storedRow 后 F7 进入 submissionStatus→status→constantTimeEquals；看 SHA-256 后的两个值相等。",
+        "返回状态 RECEIVED，再次查询仍成功。查询码只在创建时交付一次，但不是消费一次失效的激活令牌。",
+        "Debug 失败例，分别记录错误码、空码、空结果行三条路径；都应 CASE_QUERY_INVALID。"
+      ],
+      "obs": [
+        [
+          "created.id().length() / queryCode().length()",
+          "26 / 43（32 随机字节 Base64URL 无填充）"
+        ],
+        [
+          "jdbc.writes.get(0)[6]",
+          "SHA-256，64 字符"
+        ],
+        [
+          "status.status() / 第二次查询",
+          "RECEIVED / 仍成功"
+        ],
+        [
+          "三种失败 code",
+          "均 CASE_QUERY_INVALID"
+        ]
+      ],
+      "boundary": "16～256 是请求校验允许长度范围，不是本实现生成长度。探针执行回调但不验证真实幂等预约、SQL 或 Spring 事务代理。"
+    },
+    {
+      "title": "公开投影与 grant 委托",
+      "drivers": [
+        "CommunityServiceTest#public_listing_without_a_grant_only_loads_public_entries",
+        "ProjectJoinServiceTest#public_listing_without_a_grant_only_loads_public_entries",
+        "ProjectJoinServiceTest#public_listing_with_a_grant_reads_controlled_entries_through_the_shared_invite",
+        "ProjectJoinServiceTest#controlled_values_are_encrypted_with_the_project_join_context"
+      ],
+      "fixture": "JDBC 查询 mock 返回空列表；有 grant 例 community.requireGrant 也是 mock 放行，不是真实有效凭据。加密例捕获上下文并返回合成密文。",
+      "breaks": [
+        [
+          "ProjectJoinService",
+          "publicEntries("
+        ],
+        [
+          "ProjectJoinService",
+          "community.requireGrant("
+        ],
+        [
+          "CommunityService",
+          "access_level = 'PUBLIC'"
+        ]
+      ],
+      "steps": [
+        "Debug 无 grant 两个方法，在 SQL 构建处和测试 verify 后停住，查看 sql.getValue() 中 PUBLIC 限制。",
+        "Debug 有 grant 方法，观察 shared-grant 被委托给 requireGrant，随后 SQL 不含 PUBLIC 限制。",
+        "不能把 mock 放行说成 grant 有效性已证明；记录这一替身边界。",
+        "Debug 加密上下文例，在 context.capture 完成后查看 PROJECT_JOIN_ENTRY: 前缀。"
+      ],
+      "obs": [
+        [
+          "无 grant 项目 SQL",
+          "包含 access_level = PUBLIC"
+        ],
+        [
+          "无 grant requireGrant 调用次数",
+          "0"
+        ],
+        [
+          "有 grant SQL / 委托",
+          "无 PUBLIC 限制 / requireGrant(shared-grant)"
+        ],
+        [
+          "加密 AAD 前缀",
+          "PROJECT_JOIN_ENTRY:"
+        ]
+      ],
+      "boundary": "SQL 形状不证明真实数据库已过滤；grant 签发、校验、撤销全链仍需真实栈。"
+    },
+    {
+      "title": "真实解密与查看审计",
+      "drivers": [
+        "PublicContactRevealDebugProbeTest#reveals_with_matching_aad_and_records_minimal_audit",
+        "PublicContactRevealDebugProbeTest#wrong_aad_prevents_reveal_and_audit",
+        "PublicContactRevealDebugProbeTest#missing_contact_prevents_reveal_and_audit",
+        "PrivateValueCipherTest#encrypts_and_decrypts_with_aad_and_never_returns_plaintext_as_ciphertext"
+      ],
+      "fixture": "使用仅限测试的 32 字节合成密钥和真实 AES-GCM；JDBC 返回加密后的合成联系人；AuditService mock。错 AAD 与空记录单独测试。",
+      "breaks": [
+        [
+          "PublicCaseAdministrationService",
+          "private ContactView reveal("
+        ],
+        [
+          "PublicCaseAdministrationService",
+          "String contact = privateValues.decrypt("
+        ],
+        [
+          "PublicCaseAdministrationService",
+          "\"PRIVATE_CONTACT_REVEALED\""
+        ],
+        [
+          "PrivateValueCipher",
+          "public String decrypt("
+        ]
+      ],
+      "steps": [
+        "Debug 成功探针，row helper 用 SUBMISSION:ID 加密；进入 revealSubmissionContact→reveal。",
+        "在 decrypt 前比对 subjectType+\":\"+id 与生成密文时 AAD；F8 后 contact 为合成明文。",
+        "停在 audit.record，观察 before={}、after={revealed:true}，不写明文；回测试帧完成精确 verify。",
+        "Debug 错 AAD 与空记录用例，分别观察 PRIVATE_VALUE_DECRYPTION_FAILED 与 PRIVATE_CONTACT_NOT_FOUND，审计未调用。"
+      ],
+      "obs": [
+        [
+          "result.contact()",
+          "wechat:synthetic-only"
+        ],
+        [
+          "审计 action",
+          "PRIVATE_CONTACT_REVEALED"
+        ],
+        [
+          "审计 after JSON",
+          "{\"revealed\":true}，无联系值"
+        ],
+        [
+          "错误 AAD / 空记录",
+          "解密失败 / 联系记录不存在；均无审计调用"
+        ]
+      ],
+      "boundary": "真实密码学 + 模拟仓储/审计；verify 证明发起审计调用，不证明数据库多了一行，也不证明 HTTP 权限。"
+    },
+    {
+      "title": "人工投递与行动入口候选",
+      "drivers": [
+        "ManualDeliveryServiceTest#records_activation_delivery_and_marks_partner_application",
+        "ManualDeliveryServiceTest#rejects_unknown_subject_or_type",
+        "ManualDeliveryServiceTest#records_submission_status_result_after_public_result_exists",
+        "ContentActionServiceTest#replacing_actions_on_published_content_writes_only_to_a_new_candidate",
+        "ContentActionServiceTest#review_states_cannot_replace_actions",
+        "ContentActionServiceTest#public_qr_without_confirmation_is_rejected_before_a_candidate_is_created",
+        "ContentActionServiceTest#link_and_email_cannot_be_combined",
+        "ContentActionServiceTest#gated_text_is_stored_as_ciphertext_and_omitted_from_audit"
+      ],
+      "fixture": "人工投递 mock JDBC 返回存在的合作申请/投稿；行动入口用已发布 item、模拟候选克隆器与加密器。没有发送邮件/消息。",
+      "breaks": [
+        [
+          "ManualDeliveryService",
+          "public DeliveryRecord record("
+        ],
+        [
+          "ContentActionService",
+          "public ActionSet replace("
+        ]
+      ],
+      "steps": [
+        "Debug records_activation 方法，跟到 manual_delivery_records 插入、activation_delivered_at 更新、审计；三步分别记录。",
+        "Debug unknown 方法看 CONTENT 不是允许主体而拒绝；Debug status_result 方法看先有公开处理结果才能登记。",
+        "Debug replacing_actions 方法，比较原 published 与 candidate；写入的是候选修订，不修改公开指针。",
+        "再运行四条行动入口拒绝/密文方法：记录审核状态、未确认公开二维码、LINK+EMAIL 冲突、受控文本不进入明文审计。"
+      ],
+      "obs": [
+        [
+          "人工投递审计 action",
+          "MANUAL_DELIVERY_RECORDED"
+        ],
+        [
+          "未知主体错误码",
+          "MANUAL_DELIVERY_SUBJECT_INVALID"
+        ],
+        [
+          "行动入口写入修订",
+          "新的 candidate，published 保持原对象"
+        ],
+        [
+          "受控文本存储 / 审计",
+          "密文 / 不含明文联系值"
+        ]
+      ],
+      "boundary": "人工投递记录并不等于系统发送消息；现有测试只验证记录请求与业务约束。"
+    }
+  ]
+}

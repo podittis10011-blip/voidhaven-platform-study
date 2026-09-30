@@ -1,0 +1,137 @@
+[
+  {
+    "id": "vh02-E1",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/service/ContentManagementServiceReviseProbeTest.java",
+    "driver": "ContentManagementServiceReviseProbeTest#revising_a_published_item_creates_a_candidate_and_keeps_the_published_pointer",
+    "old": "item.publish();",
+    "new": "item.submit();",
+    "expected": "ERROR: CONTENT_NOT_EDITABLE；createCandidate 未执行",
+    "why": "审核中不在可编辑白名单；并非自动转入草稿分支。修改位于 publishedItem helper。"
+  },
+  {
+    "id": "vh02-E2",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/service/ContentManagementServiceReviseProbeTest.java",
+    "driver": "ContentManagementServiceReviseProbeTest#revise_rejects_a_stale_expected_version",
+    "old": "ITEM, draft(), null, 8L, ACTOR",
+    "new": "ITEM, draft(), null, null, ACTOR",
+    "expected": "PASS: CONTENT_VERSION_CONFLICT 仍被正确捕获",
+    "why": "缺失 expectedVersion 与过期版本同样拒绝；仓储写入仍为 0。"
+  },
+  {
+    "id": "vh02-E3",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/service/ContentRevisionCandidateServiceTest.java",
+    "driver": "ContentRevisionCandidateServiceTest#clone_uses_the_highest_existing_revision_number",
+    "old": ".thenReturn(5);",
+    "new": ".thenReturn(9);",
+    "expected": "FAILURE: 预期 6，实际 10",
+    "why": "只改模拟历史最大号，保留旧断言，证明编号依赖 max+1。"
+  },
+  {
+    "id": "vh03-E1",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/web/AccountEligibilityFilterTest.java",
+    "driver": "AccountEligibilityFilterTest#invalidates_an_existing_session_when_the_account_is_no_longer_active",
+    "old": "account.suspend();",
+    "new": "account.changeQualificationStatus(\"REVOKED\");",
+    "expected": "PASS: 401、会话失效、上下文清空仍成立",
+    "why": "SUSPENDED 与 REVOKED 都不是活跃账号；Account 没有 revoke() 方法。"
+  },
+  {
+    "id": "vh03-E2",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/config/PasswordEncoderDebugProbeTest.java",
+    "driver": "PasswordEncoderDebugProbeTest#real_encoder_uses_random_salt_and_checks_passwords",
+    "old": "encoder.matches(\"WrongPassword123!\", first)",
+    "new": "encoder.matches(raw, first)",
+    "expected": "FAILURE: 预期 false，实际 true",
+    "why": "保留 isFalse 断言，用正确密码替换错误输入；区分 matches 行为与测试预期。"
+  },
+  {
+    "id": "vh03-E3",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/config/ProductionConfigurationValidatorTest.java",
+    "driver": "ProductionConfigurationValidatorTest#acceptsExplicitSecureProductionConfiguration",
+    "old": "\"172.30.0.0/24\", true,",
+    "new": "\"172.30.0.0/24\", false,",
+    "expected": "FAILURE: 原无异常断言失败，原因 Production session cookies must be Secure",
+    "why": "改该文件公共 helper 中 cookieSecure 参数，其他配置保持合法；只运行选定方法。"
+  },
+  {
+    "id": "vh04-E1",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/service/IdempotencyServiceTest.java",
+    "driver": "IdempotencyServiceTest#rejects_a_matching_request_while_the_first_request_owns_the_key",
+    "old": "assertThat(actions).hasValue(0);",
+    "new": "assertThat(actions).hasValue(1);",
+    "expected": "FAILURE: 实际 actions=0",
+    "why": "反证断言：在途请求根本未执行业务回调。"
+  },
+  {
+    "id": "vh04-E2",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/service/IdempotencyServiceTest.java",
+    "driver": "IdempotencyServiceTest#releases_the_reservation_when_the_business_action_fails",
+    "old": "throw new IllegalStateException(\"synthetic failure\")",
+    "new": "throw new IllegalArgumentException(\"synthetic failure\")",
+    "expected": "FAILURE: 原断言期待 IllegalStateException，实际 IllegalArgumentException",
+    "why": "业务异常被原样传播；在 catch/release 断点仍能观察释放，不是转换成统一幂等错误。"
+  },
+  {
+    "id": "vh04-E3",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/service/MediaOrphanCleanupServiceTest.java",
+    "driver": "MediaOrphanCleanupServiceTest#queues_before_deleting_from_private_storage",
+    "old": "startsWith(\"instance-a:\"))).thenReturn(1);\n\n        int removed",
+    "new": "startsWith(\"instance-a:\"))).thenReturn(0);\n\n        int removed",
+    "expected": "FAILURE: removed 预期 1，实际 0",
+    "why": "只改 SUCCEEDED 完成更新的模拟返回值，模拟未命中持有者条件；不会使已经调用过的 delete 撤销。"
+  },
+  {
+    "id": "vh05-E1",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/service/MediaValidatorTest.java",
+    "driver": "MediaValidatorTest#decodes_real_png_pixels_and_reencodes_without_the_input_metadata",
+    "old": "BufferedImage.TYPE_INT_ARGB",
+    "new": "BufferedImage.TYPE_INT_RGB",
+    "expected": "FAILURE: 原预期 image/png，实际 image/jpeg",
+    "why": "无 alpha 通道走 JPEG 输出分支；PNG 输入不等于 PNG 输出。"
+  },
+  {
+    "id": "vh05-E2",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/service/MediaRollbackDebugProbeTest.java",
+    "driver": "MediaRollbackDebugProbeTest#rollback_callback_deletes_uploaded_object",
+    "old": "complete(TransactionSynchronization.STATUS_ROLLED_BACK, true);",
+    "new": "complete(TransactionSynchronization.STATUS_COMMITTED, true);",
+    "expected": "FAILURE: 预期 delete 1 次，实际 0",
+    "why": "只改回调状态，保留旧删除预期，证明提交不会补偿删除。"
+  },
+  {
+    "id": "vh05-E3",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/service/MarkdownDocumentServiceTest.java",
+    "driver": "MarkdownDocumentServiceTest#builds_a_safe_document_with_inline_media",
+    "old": "media:01JCONTENT0000000000000000",
+    "new": "media:01JCONTENT0000000000000001",
+    "expected": "FAILURE: 抽取的新 ID 与旧断言不同",
+    "why": "解析器照样提取格式合法的 ID，不查询该媒体是否存在；不要将提取当成归属授权。"
+  },
+  {
+    "id": "vh06-E1",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/web/PublicWriteInterceptorDebugProbeTest.java",
+    "driver": "PublicWriteInterceptorDebugProbeTest#post_submission_uses_write_bucket",
+    "old": "new MockHttpServletRequest(\"POST\", \"/api/v1/public/submissions\")",
+    "new": "new MockHttpServletRequest(\"GET\", \"/api/v1/public/submissions\")",
+    "expected": "FAILURE: 原 write 调用验证未发生",
+    "why": "只在选定测试方法中替换这一处；GET 在 preHandle 开头直接返回。"
+  },
+  {
+    "id": "vh06-E2",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/service/PublicCaseDebugProbeTest.java",
+    "driver": "PublicCaseDebugProbeTest#creates_receipt_stores_only_hash_and_queries_it",
+    "old": "var status = service.submissionStatus(created.id(), created.queryCode());",
+    "new": "var status = service.submissionStatus(created.id(), \"wrong-code\");",
+    "expected": "ERROR: CASE_QUERY_INVALID",
+    "why": "数据库行存在但 hash 不同，在返回 RECEIVED 之前拒绝。"
+  },
+  {
+    "id": "vh06-E3",
+    "target": "apps/api/src/test/java/cn/voidhaven/api/service/PublicContactRevealDebugProbeTest.java",
+    "driver": "PublicContactRevealDebugProbeTest#reveals_with_matching_aad_and_records_minimal_audit",
+    "old": "row(\"SUBMISSION:\" + ID);",
+    "new": "row(\"SUBMISSION:another-synthetic-id\");",
+    "expected": "ERROR: PRIVATE_VALUE_DECRYPTION_FAILED",
+    "why": "只改生成密文使用的 AAD；读取仍按原 ID 解密，审计不会执行。"
+  }
+]

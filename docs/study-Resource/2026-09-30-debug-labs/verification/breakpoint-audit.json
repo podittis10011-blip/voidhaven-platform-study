@@ -1,0 +1,80 @@
+{
+  "scope": "VH02～VH06 共 29 站的断点锚点行级命中审计",
+  "environment": "学习版原地：D:\\学习资料\\voidhaven-platform\\apps\\api",
+  "date": "2026-09-30",
+  "method": "Surefire 分叉 JVM 追加 -agentlib:jdwp=transport=dt_socket,server=y,suspend=y；用 JDI SocketAttach 挂载，按 station-manifest.json 的 anchors 逐个下 BreakpointRequest，并把命中时的调用栈帧与清单 drivers 比对。",
+  "evidence_class": "调试器暂停（自动）；不等于 IDEA 逐键操作，也不等于真实环境验证",
+  "driver_test_set": "baseline-classes.json 全量 41 个测试类，124 项用例，0 失败 0 错误 0 跳过",
+  "anchors_total": 88,
+  "anchors_line_confirmed": 74,
+  "anchors_not_confirmed": 14,
+  "stations_fully_confirmed": 22,
+  "stations_total": 29,
+  "hit_line_exact": 45,
+  "hit_line_method_entry_equivalent": 29,
+  "note_on_line_offset": "29 项命中的行号比锚点行大 1，属于方法签名行没有可执行字节码、断点落在方法体第一行的正常情形。",
+  "not_confirmed": [
+    {
+      "station": "VH02-D5",
+      "anchors": 3,
+      "class": "ContentRevisionCandidateService#cloneCurrent",
+      "observed": "类已 prepare 且断点已登记（24/26/51），但整轮 124 项用例没有任何断点事件",
+      "status": "待 IDEA 手工验收"
+    },
+    {
+      "station": "VH05-D1",
+      "anchors": 3,
+      "class": "MediaValidator#validate",
+      "observed": "类已 prepare 且断点已登记（39/50/56），MediaValidatorTest 正常执行，但无断点事件",
+      "status": "待 IDEA 手工验收"
+    },
+    {
+      "station": "VH05-D2",
+      "anchors": 4,
+      "class": "MediaService#upload/uploadCommunity/uploadAction/registerRollbackDelete",
+      "observed": "类已 prepare 且断点已登记（63/65/66/91/93/94/129/134/171/172/177），MediaServiceTest 与 MediaRollbackDebugProbeTest 正常执行，但无断点事件",
+      "status": "待 IDEA 手工验收"
+    },
+    {
+      "station": "VH06-D5",
+      "anchors": 1,
+      "class": "PrivateValueCipher#decrypt",
+      "observed": "类已 prepare 且断点已登记（87），PrivateValueCipherTest 与 PublicContactRevealDebugProbeTest 正常执行，但无断点事件",
+      "status": "待 IDEA 手工验收"
+    },
+    {
+      "station": "VH03-D5",
+      "anchors": 1,
+      "class": "ActivationService#consume",
+      "observed": "类已 prepare 且断点已登记（62），ActivationServiceTest 正常执行，但无断点事件",
+      "status": "待 IDEA 手工验收"
+    },
+    {
+      "station": "VH03-D4",
+      "anchors": 1,
+      "class": "Account#suspend",
+      "observed": "锚点被执行到，但驱动来自 AccountEligibilityFilterTest#invalidates_an_existing_session_when_the_account_is_no_longer_active，不在本站 drivers 清单内",
+      "status": "待核对驱动归属"
+    },
+    {
+      "station": "VH04-D5",
+      "anchors": 1,
+      "class": "RateLimitLockService#reservePublicWrite",
+      "observed": "该站由 DistributedSafetyIT 驱动，mvn test 不执行 Docker 用例",
+      "status": "BLOCKED_ENV"
+    }
+  ],
+  "findings": [
+    {
+      "id": "VH03-D2-B1",
+      "issue": "断点锚点文本 '@Bean PasswordEncoder passwordEncoder()' 在学习批注块的第 29 行先被匹配，实际方法在第 40 行；自动就近取可执行行时落到了 SecurityConfig 构造函数第 36 行",
+      "fix": "锚点文本改为 'passwordEncoder() { return Argon2PasswordEncoder'，唯一命中第 40 行；station-manifest.json 与 vh03/01-debug-walkthrough.md 已同步"
+    }
+  ],
+  "not_evidence_for": [
+    "各站观察表中的实际值（需要学习者先预测再按 F8 逐个填写）",
+    "实验 E1～E3 的失败现象（见 experiments.json 与各层 06）",
+    "真实 DOM/HTTP、CSRF、Session、grant 与过滤链行为",
+    "IDEA 逐键单步顺序本身是否顺手"
+  ]
+}

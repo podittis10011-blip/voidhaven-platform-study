@@ -1,0 +1,32 @@
+{
+  "scope": "VH02～VH06 去重基线 + 6 个探针类",
+  "environment": "学习版原地：D:\\学习资料\\voidhaven-platform\\apps\\api",
+  "repository_head": "0bd9677",
+  "branch": "main",
+  "started_at": "2026-09-30T19:15:39+08:00",
+  "finished_at": "2026-09-30T19:16:01+08:00",
+  "command": "manage-probes.ps1 -Action Install -Layer all; run-baselines.ps1 -Layer all; manage-probes.ps1 -Action Clean -Layer all",
+  "maven_goal": "mvn -o -Dtest=<41 类> test",
+  "jdk": "D:\\JDK\\JDK17",
+  "tests": 124,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "build": "BUILD SUCCESS",
+  "maven_exit_code": 0,
+  "probes_installed": 6,
+  "probes_cleaned": 6,
+  "working_tree_during_run": "apps/api/src/test/java/cn/voidhaven/api/config/BootstrapAdminCommandTest.java 有学习批注（仅新增注释行，未改断言），运行前已存在并保留",
+  "per_layer_tests": {
+    "vh02": 20,
+    "vh03": 28,
+    "vh04": 39,
+    "vh05": 22,
+    "vh06": 50
+  },
+  "not_included": [
+    "DistributedSafetyIT（需 Docker，mvn test 不执行）",
+    "MySqlAndMinioIntegrationTest（需 Docker/MySQL/MinIO）",
+    "HTTP、CSRF、Session、grant 与过滤链真实栈验证"
+  ]
+}
