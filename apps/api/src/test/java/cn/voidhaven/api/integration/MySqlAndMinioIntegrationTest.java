@@ -11,6 +11,7 @@ import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.MinIOContainer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerImageName;
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -28,7 +29,9 @@ class MySqlAndMinioIntegrationTest {
         Assumptions.assumeTrue(dockerAvailable(), "Docker 引擎不可用；集成测试未执行。");
         try (MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.4").withDatabaseName("voidhaven_test").withUsername("voidhaven").withPassword("test-only-password");
              MySQLContainer<?> upgradeMysql = new MySQLContainer<>("mysql:8.4").withDatabaseName("voidhaven_upgrade_test").withUsername("voidhaven").withPassword("test-only-password");
-             MinIOContainer minio = new MinIOContainer("minio/minio:RELEASE.2025-04-22T22-12-26Z");) {
+             MinIOContainer minio = new MinIOContainer(
+                     DockerImageName.parse("coollabsio/minio:RELEASE.2025-04-22T22-12-26Z")
+                             .asCompatibleSubstituteFor("minio/minio"));) {
             Startables.deepStart(Stream.of(mysql, upgradeMysql, minio)).join();
             Flyway flyway = Flyway.configure().dataSource(mysql.getJdbcUrl(), mysql.getUsername(), mysql.getPassword()).locations("classpath:db/migration").load();
             flyway.migrate();

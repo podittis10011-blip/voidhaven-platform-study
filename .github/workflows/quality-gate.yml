@@ -50,6 +50,18 @@ jobs:
           cache: maven
           cache-dependency-path: apps/api/pom.xml
       - run: chmod +x mvnw
+      - name: Pre-pull integration test images
+        run: |
+          for image in mysql:8.4 coollabsio/minio:RELEASE.2025-04-22T22-12-26Z; do
+            for attempt in 1 2 3; do
+              docker pull "$image" && break
+              if [ "$attempt" -eq 3 ]; then
+                echo "Unable to pull $image" >&2
+                exit 1
+              fi
+              sleep 10
+            done
+          done
       - run: ./mvnw -B verify
 
   compose:

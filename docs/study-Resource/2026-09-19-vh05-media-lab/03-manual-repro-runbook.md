@@ -171,7 +171,7 @@ $r=Invoke-WebRequest "$b/admin/content-items/$($cid.id)/publish" -Method POST -W
 $docker="$env:LOCALAPPDATA\Programs\DockerDesktop\resources\bin\docker.exe"
 $ak=$envMap['VOIDHAVEN_MEDIA_ACCESS_KEY']; $sk=$envMap['VOIDHAVEN_MEDIA_SECRET_KEY']; $bk=$envMap['VOIDHAVEN_MEDIA_BUCKET']
 & $docker run --rm --entrypoint sh --network voidhaven-repro-current_default -e "AK=$ak" -e "SK=$sk" -e "BK=$bk" `
-  minio/mc:RELEASE.2025-05-21T01-59-54Z -c 'mc alias set l http://minio:9000 "$AK" "$SK"; mc anonymous get "l/$BK"; mc ls --recursive "l/$BK"'
+  pgsty/mc:RELEASE.2026-09-16T00-00-00Z -c 'mc alias set l http://minio:9000 "$AK" "$SK"; mc anonymous get "l/$BK"; mc ls --recursive "l/$BK"'
 ```
 
 本轮实测：`Access permission for 'l/voidhaven-media' is 'private'`，对象列表里能看到 `content/6QTBF902F9WCGPHASGMRT324GE/YY5AG8Z8HM00XQT5G4D2DDCB43.jpg`。
