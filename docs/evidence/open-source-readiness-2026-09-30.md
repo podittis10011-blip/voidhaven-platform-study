@@ -13,6 +13,7 @@
 ## 仓库边界
 
 - 本地路径：`D:\学习资料\voidhaven-platform`，分支 `main`。
+- 远程：`https://github.com/podittis10011-blip/voidhaven-platform-study`（public，新建）。
 - 内容：`voidhaven-platform` 源码副本 + `docs/study-Resource/` 学习材料 + `docs/learning-Resource/` 学习卡片。
 - 本仓库不部署、不绑定域名、不创建外部资源。
 - `.env`、`node_modules/`、`apps/api/target/`、`.release/`、崩溃日志与构建产物均在忽略规则内，不进入提交。
@@ -41,6 +42,7 @@
 - **LICENSE**：新增 MIT。
 - **.gitignore**：补充 `.DS_Store`、语言缓存、临时目录与证书类文件忽略规则。
 - **格式修复**：`apps/web/src/lib/api.ts` 存在既有 Prettier 不符（仅注释缩进与空行），已按 Prettier 输出规整，未改逻辑。
+- **集成测试镜像修复**：MinIO 官方已下架 `minio/minio:RELEASE.2025-04-22T22-12-26Z`（Docker Hub 返回 404），首次远程 CI 在 Testcontainers 拉取镜像时失败。改为社区维护的 `coollabsio/minio` 同版本镜像并声明兼容替代，Compose 三份编排的服务端与 `mc` 客户端镜像同步替换，`quality-gate` 在跑 Maven 前预拉取镜像并重试 3 次。
 
 ## 本次实际运行的验证
 
@@ -57,9 +59,17 @@
 
 未运行（不计为通过）：
 
-- `DistributedSafetyIT`、`MySqlAndMinioIntegrationTest`：需要可用的 Docker 引擎与 MySQL/MinIO 镜像，本机未确认可用。
-- Playwright E2E、Compose 冷启动、真实 HTTP 写入、备份与恢复、发布回滚：需要完整后端与数据库环境。
-- GitHub Actions：首次推送后由远程执行，结果不预先计入本地验收。
+- Playwright E2E、Compose 冷启动、真实 HTTP 写入、备份与恢复、发布回滚：需要完整后端与数据库环境，本机未完成。
+
+## 远程 CI 结果
+
+推送后由 GitHub Actions 执行 `quality-gate`，四个任务 `repository`、`web`、`api`、`compose` 全部通过：
+
+- 首次运行（提交 `f6f9d1b`）：`api` 失败，原因是 MinIO 官方镜像 404，已在下一提交修复。
+- 修复后（提交 `b62b380`）：Surefire 133 项通过、0 失败、0 跳过（含 `MySqlAndMinioIntegrationTest` 的 MySQL 与 S3 兼容存储验证）；Failsafe `DistributedSafetyIT` 1 项通过（14.4 秒，真实 Testcontainers MySQL 并发场景）；`BUILD SUCCESS`。
+- 运行记录：<https://github.com/podittis10011-blip/voidhaven-platform-study/actions/runs/36711139658>
+
+这说明 `DistributedSafetyIT` 与 `MySqlAndMinioIntegrationTest` 在远程 Docker 环境已经跑通；本地未复跑这两项，本地结论仍以“未运行”为准。
 
 ## 已知残留
 

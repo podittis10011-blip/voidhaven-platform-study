@@ -43,7 +43,7 @@
 需要 Git、Node.js 24.15+、npm 10+。后端验证需要 JDK 17；完整运行与数据库集成测试需要 Docker Desktop 的 Linux 引擎。Maven 使用仓库自带 Wrapper。
 
 ```powershell
-git clone <本仓库地址>
+git clone https://github.com/podittis10011-blip/voidhaven-platform-study.git
 cd voidhaven-platform
 npm ci
 ```
